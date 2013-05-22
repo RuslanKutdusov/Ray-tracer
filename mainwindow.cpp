@@ -8,22 +8,33 @@ MainWindow::MainWindow(QWidget *parent) :
     QMainWindow(parent),
     ui(new Ui::MainWindow)
 {
+    buf = NULL;
+
+    Vector v1(0, 1, 0);
+    Vector v2(1, -1, 0);
+    Vector v3 = v2.reflect(v1);
+
     ui->setupUi(this);
-    Material m1(Color(), Color(0.4, 0.1, 0.1), Color(0.5, 0.5, 0.5), 5, 8, 0, 0);
-    Material m2(Color(), Color(0.1, 0.4, 0.1), Color(0.5, 0.5, 0.5), 5, 8, 0, 0);
-    Material m3(Color(), Color(0.1, 0.1, 0.4), Color(0.5, 0.5, 0.5), 5, 8, 0, 0);
-    Material m4(Color(), Color(0.4, 0.4, 0.1), Color(0.5, 0.5, 0.5), 5, 8, 0, 0);
-    Material m5(Color(), Color(0.1, 0.4, 0.4), Color(0.5, 0.5, 0.5), 5, 8, 0, 0);
-    Material m6(Color(), Color(0.2, 0.2, 0.2), Color(0.2, 0.2, 0.2), 0.1, 2, 0, 0);
+    Material m1(Color(0.1, 0.0, 0.0), Color(0.4, 0.1, 0.1), Color(0.5, 0.5, 0.5), 5, 8, 0, 0);
+    Material m2(Color(0.0, 0.1, 0.0), Color(0.1, 0.4, 0.1), Color(0.5, 0.5, 0.5), 5, 8, 0, 0);
+    Material m3(Color(0.0, 0.0, 0.1), Color(0.1, 0.1, 0.4), Color(0.5, 0.5, 0.5), 5, 8, 0, 0);
+    Material m4(Color(0.1, 0.1, 0.0), Color(0.4, 0.4, 0.1), Color(0.5, 0.5, 0.5), 5, 8, 0, 0);
+    Material m5(Color(0.0, 0.1, 0.1), Color(0.1, 0.4, 0.4), Color(0.5, 0.5, 0.5), 5, 8, 0, 0);
+    Material m6(Color(0.2, 0.2, 0.2), Color(0.2, 0.2, 0.2), Color(0.2, 0.2, 0.2), 0.1, 2, 0, 0);
+    Material m7(Color(), Color(0.2, 0.2, 0.2), Color(0.2, 0.2, 0.2), 5, 2, 1, 1);
+    Material m8(Color(0.09, 0.1, 0.1), Color(0.0, 0.8, 0.0), Color(0.5, 0.5, 0.5), 5, 8, 0, 0);
+
+
 
     double box_size = 12;
+
     //YZ far
     Matrix m = Matrix::TranslateMatrix(-box_size / 2, 0, 0);
     m = Matrix::RotateY(PI / 2) * m;
     objects.push_back(new ObjectPlane(m, box_size, box_size, m1));
     //XY top
     m = Matrix::TranslateMatrix(0, 0, box_size / 2);
-    objects.push_back(new ObjectPlane(m, box_size, box_size, m2, true));
+    //objects.push_back(new ObjectPlane(m, box_size, box_size, m2, true));
     //XY bottom
     m = Matrix::TranslateMatrix(0, 0, -box_size / 2);
     objects.push_back(new ObjectPlane(m, box_size, box_size, m3));
@@ -37,24 +48,28 @@ MainWindow::MainWindow(QWidget *parent) :
     objects.push_back(new ObjectPlane(m, box_size, box_size, m5));
 
     objects.push_back(new ObjectBox(Vector(0, -2, -box_size / 2 + 1.5), Vector(0, 0, -0.5), 3, m6));
-    //objects.push_back(new ObjectBox(Vector(0, 0, 0), Vector(0, 0, 0.4), 3, m6));
 
-    objects.push_back(new ObjectSphere(Vector(1, 2, -box_size / 2 + 1.5), 1.5, m1));
+    objects.push_back(new ObjectSphere(Vector(1, 2, -box_size / 2 + 1.5), 1.5, m8));
 
     lights.push_back(ObjectLight(Vector(4, -4, 4), Color(0.7, 0.7, 0.8)));
-    lights.push_back(ObjectLight(Vector(4, 4, 4), Color(0.8, 0.6, 0.7)));
+    lights.push_back(ObjectLight(Vector(4, 4, 3), Color(0.8, 0.6, 0.7)));
 
     //lights.push_back(ObjectLight(Vector(-4, 4, 4), light_material));
 //    Material light_material2(QColor(100, 0,0 ), QColor(0, 0, 0), QColor(0, 0, 0));
 //    lights.push_back(ObjectLight(Vector(3,0,2), light_material2));
+
+    start_ray_tracing(width(), height());
 }
 
 MainWindow::~MainWindow()
 {
+    for(int i = 0; i < buf_width; i++)
+        delete[] buf[i];
+    delete[] buf;
     delete ui;
 }
 
-#define MAX_DEPTH  20
+#define MAX_DEPTH  10
 
 Color MainWindow::ray_tracing(const Ray & ray, const int &depth, int & rays_count, double * distance){
     if (depth == MAX_DEPTH)
@@ -136,14 +151,16 @@ Color MainWindow::ray_tracing(const Ray & ray, const int &depth, int & rays_coun
     return ret;
 }
 
-void MainWindow::paintEvent(QPaintEvent *pevent){
-    QPainter painter;
-    painter.begin(this);
-    painter.setRenderHint(QPainter::Antialiasing);
-    painter.fillRect(pevent->rect(), QColor(0, 0, 0));
-//    painter.translate(pevent->rect().width() / 2, pevent->rect().height() / 2);
-//    painter.drawPoint(0, 0);
-    double ratio = (double)pevent->rect().width() / (double)pevent->rect().height();
+void MainWindow::start_ray_tracing(const size_t & width, const size_t & height){
+    if (!buf){
+        buf_width = width + 1;
+        buf = new Color*[buf_width];
+        for(int i = 0; i < buf_width; i++)
+            buf[i] = new Color[height + 1];
+    }
+    else
+        return;
+    double ratio = (double)width / (double)height;
     Vector camera_pos(17, 0, 0);
     double w = 6;
     double h = w / ratio;
@@ -152,23 +169,33 @@ void MainWindow::paintEvent(QPaintEvent *pevent){
                       Vector(f, w/2, h/2),
                       Vector(f, -w/2, -h/2),
                       Vector(f, w/2, -h/2));
-    double step_y = w / pevent->rect().width();
+    double step_y = w / width;
 
     for(double y = viewport.m_p1.y, xx = 0; y < viewport.m_p2.y; y += step_y, xx++){
         int rays_count = 0;
         for(double z = viewport.m_p1.z, yy = 0; z > viewport.m_p3.z; z -= step_y, yy++){
             Vector viewport_point(viewport.m_p1.x, y, z);
             Ray first_ray(viewport_point, camera_pos);
-            Matrix m = Matrix::RotateY(-0.2);
-            first_ray.start_point = camera_pos + Vector(0, 0, 2);
+            Matrix m = Matrix::RotateY(-0.1);
+            first_ray.start_point = camera_pos + Vector(0, 0, -1);
             first_ray.vector = m.mul(first_ray.vector);
-            Color c =ray_tracing(first_ray, 0, rays_count, NULL);
-            QPen p = QPen(c.convert());
-            painter.setPen(p);
-            painter.drawPoint(xx, yy);
+            buf[(int)xx][(int)yy] =ray_tracing(first_ray, 0, rays_count, NULL);
         }
-        printf("%d/%d rays=%d\n", (int)xx, pevent->rect().width(), rays_count);
+        printf("%d/%u rays=%d\n", (int)xx, width, rays_count);
         fflush(stdout);
     }
+}
+
+void MainWindow::paintEvent(QPaintEvent *pevent){
+    QPainter painter;
+    painter.begin(this);
+    painter.setRenderHint(QPainter::Antialiasing);
+    painter.fillRect(pevent->rect(), QColor(0, 0, 0));
+    for(int x = 0; x < pevent->rect().width(); x++)
+        for(int y = 0; y < pevent->rect().height(); y++){
+            QPen p = QPen(buf[x][y].convert());
+            painter.setPen(p);
+            painter.drawPoint(x, y);
+        }
     painter.end();
 }

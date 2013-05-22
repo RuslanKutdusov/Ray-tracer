@@ -25,8 +25,9 @@ public:
     virtual ~Object(){
     }
     void get_reflect_refract_rays(const Ray & ray, Intersection & intersection){
-        double cos_ = ray.vector.dot(intersection.normal);
-        Vector normal = cos_ > 0 ? intersection.normal : intersection.normal.scalar(-1);
+        Vector normal = intersection.normal;
+        double cos_ = ray.vector.dot(normal);
+        //Vector normal = cos_ > 0 ? intersection.normal : intersection.normal.scalar(-1);
         intersection.reflect_ray.vector = ray.vector.reflect(normal);
         intersection.reflect_ray.vector.normalize();
         intersection.reflect_ray.start_point = intersection.point;
@@ -83,8 +84,8 @@ public:
         normal = (u * v);
         if (!inverse_normal)
             normal = normal.scalar(-1);
-        abcd = Vector4(normal.x, normal.y, normal.z, -normal.dot(c));
         normal.normalize();
+        abcd = Vector4(normal.x, normal.y, normal.z, -normal.dot(c));
     }
     virtual bool RayIntersect(const Ray &ray, Intersection & intersection){
         intersection.normal = normal;
@@ -129,12 +130,13 @@ public:
 
 class ObjectBox : public Object{
 private:
-    ObjectPlane planes[6];
-    void init_plane(const size_t & index, const Vector & pos, const Vector & rotate, const double & size,
+    //ObjectPlane planes[6];
+    std::vector<ObjectPlane> planes;
+    void init_plane(const Vector & pos, const Vector & rotate, const double & size,
                     const Material & material, Matrix & m)
     {
         m = m * Matrix::RotateX(rotate.x) * Matrix::RotateY(rotate.y) * Matrix::RotateZ(rotate.z) * Matrix::TranslateMatrix(pos);
-        planes[index] =  ObjectPlane(m, size, size, material);
+        planes.push_back(ObjectPlane(m, size, size, material));
     }
 
 public:
@@ -142,33 +144,35 @@ public:
               const Material & material)
         : Object(material)
     {
-        Matrix m = Matrix::TranslateMatrix(0, 0, -size / 2);
-        init_plane(0, pos, rotate, size, material, m);
-
+        Matrix m;
+        //XY bottom
+        m = Matrix::TranslateMatrix(0, 0, -size / 2);
+        init_plane(pos, rotate, size, material, m);
+        //XY top
         m = Matrix::TranslateMatrix(0, 0, size / 2);
-        init_plane(1, pos, rotate, size, material, m);
-
+        init_plane(pos, rotate, size, material, m);
+        //YZ far
         m = Matrix::TranslateMatrix(-size / 2, 0, 0);
         m = Matrix::RotateY(-PI / 2) * m;
-        init_plane(2, pos, rotate, size, material, m);
-
+        init_plane(pos, rotate, size, material, m);
+        //YZ nead
         m = Matrix::TranslateMatrix(size / 2, 0, 0);
         m = Matrix::RotateY(PI / 2) * m;
-        init_plane(3, pos, rotate, size, material, m);;
-
+        init_plane(pos, rotate, size, material, m);;
+        //XZ right
         m = Matrix::TranslateMatrix(0, size / 2, 0);
         m = Matrix::RotateX(-PI / 2) * m;
-        init_plane(4, pos, rotate, size, material, m);
-
+        init_plane(pos, rotate, size, material, m);
+        //XZ left
         m = Matrix::TranslateMatrix(0, -size / 2, 0);
         m = Matrix::RotateX(PI / 2) * m;
-        init_plane(5, pos, rotate, size, material, m);;
+        init_plane(pos, rotate, size, material, m);;
     }
     virtual bool RayIntersect(const Ray &ray, Intersection &intersection){
         Intersection intr;
         int i_plane = -1;
         double distance2obj = INFINITY;
-        for(size_t i = 0; i < 6; i++){
+        for(size_t i = 0; i < planes.size(); i++){
             Intersection in;
             if (planes[i].RayIntersect(ray, in)){
                 double dist = in.point.distance(ray.start_point);
@@ -213,10 +217,12 @@ public:
         double B = v.dot(ray.vector);
         double C = v.dot(v) - R * R;
         double D = sqrt(B*B - C);
-        if (D < 0)
+        if (D < 0 || isnan(D))
             return false;
         double t1 = (-B - D);
         double t2 = (-B + D);
+        if (t1 < 0 && t2 < 0)
+            return false;
         if (t1 < t2){
             if (t1 < 0)
                 return intersect(ray, t2, intersection);

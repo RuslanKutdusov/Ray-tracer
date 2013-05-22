@@ -22,8 +22,10 @@ private:
     Ui::MainWindow *ui;
     std::vector<Object*> objects;
     std::vector<ObjectLight> lights;
-    bool drawed;
+    Color ** buf;
+    int buf_width;
     Color ray_tracing(const Ray & ray, const int & depth, int & rays_count, double *distance);
+    void start_ray_tracing(const size_t & width, const size_t & height);
 protected:
     void paintEvent(QPaintEvent * pevent);
 };
