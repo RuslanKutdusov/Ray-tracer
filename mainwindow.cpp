@@ -10,19 +10,15 @@ MainWindow::MainWindow(QWidget *parent) :
 {
     buf = NULL;
 
-    Vector v1(0, 1, 0);
-    Vector v2(1, -1, 0);
-    Vector v3 = v2.reflect(v1);
-
     ui->setupUi(this);
-    Material m1(Color(0.1, 0.0, 0.0), Color(0.4, 0.1, 0.1), Color(0.5, 0.5, 0.5), 5, 8, 0, 0);
+    Material m1(Color(0.0, 0.0, 0.0), Color(0.003, 0.003, 0.003), Color(0.5, 0.5, 0.5), 5, 15, 0, 0, "wall.png");
     Material m2(Color(0.0, 0.1, 0.0), Color(0.1, 0.4, 0.1), Color(0.5, 0.5, 0.5), 5, 8, 0, 0);
     Material m3(Color(0.0, 0.0, 0.1), Color(0.1, 0.1, 0.4), Color(0.5, 0.5, 0.5), 5, 8, 0, 0);
     Material m4(Color(0.1, 0.1, 0.0), Color(0.4, 0.4, 0.1), Color(0.5, 0.5, 0.5), 5, 8, 0, 0);
     Material m5(Color(0.0, 0.1, 0.1), Color(0.1, 0.4, 0.4), Color(0.5, 0.5, 0.5), 5, 8, 0, 0);
     Material m6(Color(0.2, 0.2, 0.2), Color(0.2, 0.2, 0.2), Color(0.2, 0.2, 0.2), 0.1, 2, 0, 0);
-    Material m7(Color(), Color(0.2, 0.2, 0.2), Color(0.2, 0.2, 0.2), 5, 2, 1, 1);
-    Material m8(Color(0.09, 0.1, 0.1), Color(0.0, 0.8, 0.0), Color(0.5, 0.5, 0.5), 5, 8, 0, 0);
+    Material m7(Color(0.09, 0.1, 0.1), Color(0.5, 0.7, 0.2), Color(), 5, 2, 0.8, 0.7);
+    Material m8(Color(0.09, 0.1, 0.1), Color(0.2, 0.7, 0.5), Color(0.5, 0.5, 0.5), 0.5, 10, 0, 0);
 
 
 
@@ -34,29 +30,31 @@ MainWindow::MainWindow(QWidget *parent) :
     objects.push_back(new ObjectPlane(m, box_size, box_size, m1));
     //XY top
     m = Matrix::TranslateMatrix(0, 0, box_size / 2);
-    //objects.push_back(new ObjectPlane(m, box_size, box_size, m2, true));
+    objects.push_back(new ObjectPlane(m, box_size, box_size, m1, true));
     //XY bottom
     m = Matrix::TranslateMatrix(0, 0, -box_size / 2);
-    objects.push_back(new ObjectPlane(m, box_size, box_size, m3));
+    objects.push_back(new ObjectPlane(m, box_size, box_size, m1));
     //XZ left
     m = Matrix::TranslateMatrix(0, box_size / 2, 0);
     m = Matrix::RotateX(PI / 2) * m;
-    objects.push_back(new ObjectPlane(m, box_size, box_size, m4));
+    objects.push_back(new ObjectPlane(m, box_size, box_size, m1));
     //XZ right
     m = Matrix::TranslateMatrix(0, -box_size / 2, 0);
     m = Matrix::RotateX(-PI / 2) * m;
-    objects.push_back(new ObjectPlane(m, box_size, box_size, m5));
+    objects.push_back(new ObjectPlane(m, box_size, box_size, m1));
 
-    objects.push_back(new ObjectBox(Vector(0, -2, -box_size / 2 + 1.5), Vector(0, 0, -0.5), 3, m6));
+    objects.push_back(new ObjectBox(Vector(0, -2, -box_size / 2 + 1.5), Vector(0, 0, -0.5), 3, m8));
 
-    objects.push_back(new ObjectSphere(Vector(1, 2, -box_size / 2 + 1.5), 1.5, m8));
+    objects.push_back(new ObjectSphere(Vector(1.5, 1.5, -box_size / 2 + 2), 2, m7));
 
-    lights.push_back(ObjectLight(Vector(4, -4, 4), Color(0.7, 0.7, 0.8)));
-    lights.push_back(ObjectLight(Vector(4, 4, 3), Color(0.8, 0.6, 0.7)));
+    double x = 0, y = 0;
+    for(x = 0; x < 1; x += 0.2)
+        for(y = 0; y < 1; y += 0.2)
+        {
+            lights.push_back(ObjectLight(Vector(x + 2,-4 + y, 2), Color(0.02, 0.02, 0.02)));
+            lights.push_back(ObjectLight(Vector(x + 4,y + 4, 3), Color(0.02, 0.02, 0.02)));
+        }
 
-    //lights.push_back(ObjectLight(Vector(-4, 4, 4), light_material));
-//    Material light_material2(QColor(100, 0,0 ), QColor(0, 0, 0), QColor(0, 0, 0));
-//    lights.push_back(ObjectLight(Vector(3,0,2), light_material2));
 
     start_ray_tracing(width(), height());
 }
@@ -69,7 +67,7 @@ MainWindow::~MainWindow()
     delete ui;
 }
 
-#define MAX_DEPTH  10
+#define MAX_DEPTH  5
 
 Color MainWindow::ray_tracing(const Ray & ray, const int &depth, int & rays_count, double * distance){
     if (depth == MAX_DEPTH)
@@ -140,13 +138,13 @@ Color MainWindow::ray_tracing(const Ray & ray, const int &depth, int & rays_coun
 
     Color refract_ray_color;
     if (objects[i_object]->m_material.m_refract_amount > 0)
-        refract_ray_color = ray_tracing(intr.refract_ray, depth_, rays_count, NULL);
+        refract_ray_color = ray_tracing(intr.refract_ray, depth_, rays_count, NULL) * objects[i_object]->m_material.m_refract_amount;
 
     ret = objects[i_object]->m_material.m_ambient +
-          objects[i_object]->m_material.m_diffuse * diffuse +
+          objects[i_object]->m_material.m_diffuse * diffuse * intr.pixel +
           objects[i_object]->m_material.m_specular * specular +
             reflect_ray_color +
-            refract_ray_color;
+            refract_ray_color ;
     //fflush(stdout);
     return ret;
 }

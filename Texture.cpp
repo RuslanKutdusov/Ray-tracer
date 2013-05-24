@@ -10,25 +10,6 @@ void PNGAPI error_function(png_structp png, png_const_charp dummy) {
   longjmp(png_jmpbuf(png), 1);
 }
 
-uint8_t * ALPHA(const uint32_t & argb)
-{
-        return (uint8_t*)(&argb) + 3;
-}
-
-uint8_t * RED(const uint32_t & argb)
-{
-        return (uint8_t*)(&argb) + 2;
-}
-
-uint8_t * GREEN(const uint32_t & argb)
-{
-        return (uint8_t*)(&argb) + 1;
-}
-
-uint8_t * BLUE(const uint32_t & argb)
-{
-        return (uint8_t*)(&argb);
-}
 
  int read_png(const std::string & file_name, image_t & image) {
   png_structp png;
@@ -104,21 +85,19 @@ uint8_t * BLUE(const uint32_t & argb)
 
   image.width = width;
   image.height = height;
-  image.image = new uint32_t[height * width];
+  image.image = new Color[height * width];
   for(size_t y = 0; y < height; y++)
       for(size_t x = 0; x < width; x++){
           size_t i = y * width + x;
           if (has_alpha) {
-              *ALPHA(image.image[i]) = rgb[stride * y + x * 4];
-              *RED(image.image[i])   = rgb[stride * y + x * 4 + 1];
-              *GREEN(image.image[i]) = rgb[stride * y + x * 4 + 2];
-              *BLUE(image.image[i])  = rgb[stride * y + x * 4 + 3];
+              image.image[i].r = rgb[stride * y + x * 4 + 1] / 255.0;
+              image.image[i].g = rgb[stride * y + x * 4 + 2] / 255.0;
+              image.image[i].b = rgb[stride * y + x * 4 + 3] / 255.0;
           }
           else{
-              *ALPHA(image.image[i]) = 0xFF;
-              *RED(image.image[i])   = rgb[stride * y + x * 3];
-              *GREEN(image.image[i]) = rgb[stride * y + x * 3 + 1];
-              *BLUE(image.image[i])  = rgb[stride * y + x * 3 + 2];
+              image.image[i].r = rgb[stride * y + x * 3];
+              image.image[i].g = rgb[stride * y + x * 3 + 1];
+              image.image[i].b = rgb[stride * y + x * 3 + 2];
           }
       }
   free(rgb);

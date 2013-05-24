@@ -8,51 +8,68 @@
 
 struct Intersection{
     Vector  point;
+    int     at_object;
     Vector  normal;
     Ray     reflect_ray;
     Ray     refract_ray;
+    Color   pixel;
 };
+
+static int ObjectID_Counter = 0;
 
 class Object{
 private:
 
 public:
     Material m_material;
-    Object() = default;
+    int     id;
+    Object(){
+        id = ObjectID_Counter++;
+    }
+
     Object(const Material & material)
         : m_material(material)
-    {}
+    {
+        id = ObjectID_Counter++;
+    }
     virtual ~Object(){
     }
     void get_reflect_refract_rays(const Ray & ray, Intersection & intersection){
-        Vector normal = intersection.normal;
-        double cos_ = ray.vector.dot(normal);
-        //Vector normal = cos_ > 0 ? intersection.normal : intersection.normal.scalar(-1);
-        intersection.reflect_ray.vector = ray.vector.reflect(normal);
+        Vector i = ray.vector;
+        Vector n = intersection.normal;
+        intersection.reflect_ray.vector = i.reflect(n);
         intersection.reflect_ray.vector.normalize();
         intersection.reflect_ray.start_point = intersection.point;
-        //reflect_angle_cos = ray.vector.dot(normal) / ray.vector.length() / normal.length();
         if (m_material.m_refract_amount > 0){
-            double refract_coef = cos_ > 0 ? m_material.m_refract_coef : 1 /  m_material.m_refract_coef;
-            //cos_ = cos_ > 0 ? cos_ : -cos_;
-            double sin_2 = refract_coef*refract_coef * (1 - cos_*cos_);
-            if (sin_2 <= 1){
-//                intersection.refract_ray.vector = ray.vector.scalar(refract_coef) +
-//                        normal.scalar(refract_coef * cos_ - sqrt(1 - sin_2));
-                double sign = cos_ > 0 ? 1: -1;
-                double c = sqrt(1 - sin_2);
-                intersection.refract_ray.vector = ray.vector.scalar(refract_coef)+
-                        normal.scalar(sign*(c - sign*refract_coef*cos_));
+            double refract_coef = m_material.m_refract_coef;
+            double cos_i = -i.dot(n);
+            if (fabs(cos_i) < EPSILON){
+                intersection.refract_ray.vector = ray.vector;
+                intersection.refract_ray.start_point = intersection.point;
+                return;
             }
-            else
-                intersection.refract_ray.vector = intersection.reflect_ray.vector;
-            intersection.refract_ray.vector.normalize();
-            intersection.refract_ray.start_point = intersection.point;
+            if (cos_i < 0.0){
+                n = n.scalar(-1);
+                cos_i = -i.dot(n);
+                refract_coef = 1 / refract_coef;
+            }
+            double sin2_t = refract_coef*refract_coef * (1.0 - cos_i*cos_i);
+            if (sin2_t <= 1){
+                double cos_t = sqrt(1.0 - sin2_t);
+                intersection.refract_ray.vector = i.scalar(refract_coef) + n.scalar(refract_coef * cos_i - cos_t);
+                intersection.refract_ray.vector.normalize();
+                intersection.refract_ray.start_point = intersection.point;
+            }
+            else{
+                intersection.refract_ray = intersection.reflect_ray;
+            }
         }
 
     }
-    bool is_in_border(const double & v, const double & b1, const double & b2){
-                                if ((v >= b1 && v <= b2) || (v >= b2 && v <= b1))
+    bool is_in_border(const double & v, const double & b1, const double & b2, double & t){
+        t = (v - b1) / (b2 - b1);
+        t = t > 1.0 ? 1.0 : t;
+        if ((v >= b1 && v <= b2))// || (v >= b2 && v <= b1))
                 return true;
         if (fabs(v - b1) < EPSILON || fabs(v - b2) < EPSILON)
             return true;
@@ -116,9 +133,11 @@ public:
         intersection.point = ray.point(t);
         if (A * intersection.point.x + B * intersection.point.y + C * intersection.point.z + D < EPSILON){
             Vector intr = m_inverse.mul(intersection.point);
-            if (!is_in_border(intr.x, b1.x, b4.x) ||
-                !is_in_border(intr.y, b1.y, b4.y))
+            double tx, ty;
+            if (!is_in_border(intr.x, b1.x, b4.x, tx) ||
+                !is_in_border(intr.y, b4.y, b1.y, ty))
                 return false;
+            intersection.pixel = m_material.get_color(tx, ty);
             get_reflect_refract_rays(ray, intersection);
             return true;
         }
@@ -137,6 +156,7 @@ private:
     {
         m = m * Matrix::RotateX(rotate.x) * Matrix::RotateY(rotate.y) * Matrix::RotateZ(rotate.z) * Matrix::TranslateMatrix(pos);
         planes.push_back(ObjectPlane(m, size, size, material));
+        planes.back().id = id;
     }
 
 public:
@@ -201,8 +221,6 @@ public:
     {
     }
     bool intersect(const Ray &ray, const double & t, Intersection & intersection){
-        if (fabs(t) < EPSILON)
-            return false;
         intersection.point = ray.point(t);
         if (fabs((intersection.point - m_center).length() - m_radius) > EPSILON)
                 return false;
@@ -212,31 +230,38 @@ public:
         return true;
     }
     virtual bool RayIntersect(const Ray &ray, Intersection & intersection){
+        intersection.pixel = Color(1, 1, 1);
         double & R = m_radius;
         Vector v = ray.start_point - m_center;
         double B = v.dot(ray.vector);
         double C = v.dot(v) - R * R;
         double D = sqrt(B*B - C);
-        if (D < 0 || isnan(D))
+        if (isnan(D))
             return false;
         double t1 = (-B - D);
         double t2 = (-B + D);
         if (t1 < 0 && t2 < 0)
             return false;
-        if (t1 < t2){
-            if (t1 < 0)
-                return intersect(ray, t2, intersection);
-            return intersect(ray, t1, intersection);
+        double min_t = fmin(t1, t2);
+        double max_t = fmax(t1, t2);
+        double t = (min_t >= 0) ? min_t : max_t;
+        if (fabs(t) < EPSILON){
+            if (t < EPSILON)
+                t = max_t;
+            if (t < EPSILON)
+                return false;
         }
-        else
-        if (t2 < t1){
-            if (t2 < 0)
-                return intersect(ray, t1, intersection);
-            return intersect(ray, t2, intersection);
-        }
-        else if(t1 > 0 && t2 > 0)
-            return intersect(ray, t1, intersection);
+        return intersect(ray, t, intersection);
         return false;
+
+        if (t1 < 0 || t2 < 0)
+            return false;
+        if (t1 < t2)
+            return intersect(ray, t1, intersection);
+        else
+            return intersect(ray, t2, intersection);
+        return false;
+
     }
 };
 
@@ -248,7 +273,7 @@ public:
     Vector m_center;
     double m_radius;
     ObjectLight(const Vector & center, const Color & color)
-        : m_color(color), m_center(center), m_radius(1)
+        : m_color(color), m_center(center), m_radius(0)
     {}
     bool RayIntersectLight(const Ray &ray){
         Vector v(m_center.x - ray.start_point.x,

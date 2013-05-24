@@ -5,7 +5,7 @@
 #include "Color.hpp"
 
 struct image_t{
-    uint32_t* image;
+    Color* image;
     uint16_t width;
     uint16_t height;
     image_t(){
@@ -33,13 +33,19 @@ public:
     Texture(const std::string & filename){
         read_png(filename, image);
     }
+    virtual ~Texture(){
+
+    }
     Color pixel(const double & x, const double & y){
+        if (!image.image)
+            return Color(1, 1, 1);
         size_t xx = x * image.width;
         size_t yy = y * image.height;
         xx = xx == image.width ? image.width - 1 : xx;
         yy = yy == image.height ? image.height - 1 : yy;
-        uint32_t c = image.image[xx + yy * image.width];
-        return Color (*RED(c) / 255, *GREEN(c) / 25, *BLUE(c) / 255);
+//        uint32_t c = image.image[xx + yy * image.width];
+//        return Color (*RED(c) / 255, *GREEN(c) / 25, *BLUE(c) / 255);
+        return image.image[xx + yy * image.width];
     }
 };
 
