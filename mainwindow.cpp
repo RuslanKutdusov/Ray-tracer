@@ -16,8 +16,8 @@ MainWindow::MainWindow(QWidget *parent) :
     Material m3(Color(0.0, 0.0, 0.1), Color(0.1, 0.1, 0.4), Color(0.5, 0.5, 0.5), 5, 8, 0, 0);
     Material m4(Color(0.1, 0.1, 0.0), Color(0.4, 0.4, 0.1), Color(0.5, 0.5, 0.5), 5, 8, 0, 0);
     Material m5(Color(0.0, 0.1, 0.1), Color(0.1, 0.4, 0.4), Color(0.5, 0.5, 0.5), 5, 8, 0, 0);
-    Material m6(Color(0.2, 0.2, 0.2), Color(0.2, 0.2, 0.2), Color(0.2, 0.2, 0.2), 0.1, 2, 0, 0);
-    Material m7(Color(0.09, 0.1, 0.1), Color(0.5, 0.7, 0.2), Color(), 5, 2, 0.8, 0.7);
+    Material m6(Color(0.2, 0.2, 0.2), Color(), Color(), 0.01, 2, 0, 0);
+    Material m7(Color(), Color(), Color(0.5, 0.5, 0.5), 5, 10, 0.8, 0.8);
     Material m8(Color(0.09, 0.1, 0.1), Color(0.2, 0.7, 0.5), Color(0.5, 0.5, 0.5), 0.5, 10, 0, 0);
 
 
@@ -46,6 +46,7 @@ MainWindow::MainWindow(QWidget *parent) :
     objects.push_back(new ObjectBox(Vector(0, -2, -box_size / 2 + 1.5), Vector(0, 0, -0.5), 3, m8));
 
     objects.push_back(new ObjectSphere(Vector(1.5, 1.5, -box_size / 2 + 2), 2, m7));
+    objects.push_back(new ObjectSphere(Vector(0, -2, -box_size / 2 + 4.5), 1.5, m6));
 
     double x = 0, y = 0;
     for(x = 0; x < 1; x += 0.2)

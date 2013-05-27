@@ -12,6 +12,7 @@ TARGET = ray_tracing
 TEMPLATE = app
 
 CONFIG += c++11
+QMAKE_CXXFLAGS_RELEASE = -march=native -funroll-loops -O3 -m64
 LIBS += -lpng
 
 SOURCES += main.cpp\

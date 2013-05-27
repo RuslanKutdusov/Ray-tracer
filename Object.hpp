@@ -15,22 +15,19 @@ struct Intersection{
     Color   pixel;
 };
 
-static int ObjectID_Counter = 0;
-
 class Object{
 private:
 
 public:
     Material m_material;
-    int     id;
     Object(){
-        id = ObjectID_Counter++;
+
     }
 
     Object(const Material & material)
         : m_material(material)
     {
-        id = ObjectID_Counter++;
+
     }
     virtual ~Object(){
     }
@@ -43,11 +40,6 @@ public:
         if (m_material.m_refract_amount > 0){
             double refract_coef = m_material.m_refract_coef;
             double cos_i = -i.dot(n);
-            if (fabs(cos_i) < EPSILON){
-                intersection.refract_ray.vector = ray.vector;
-                intersection.refract_ray.start_point = intersection.point;
-                return;
-            }
             if (cos_i < 0.0){
                 n = n.scalar(-1);
                 cos_i = -i.dot(n);
@@ -131,32 +123,26 @@ public:
             return false;
         }
         intersection.point = ray.point(t);
-        if (A * intersection.point.x + B * intersection.point.y + C * intersection.point.z + D < EPSILON){
-            Vector intr = m_inverse.mul(intersection.point);
-            double tx, ty;
-            if (!is_in_border(intr.x, b1.x, b4.x, tx) ||
-                !is_in_border(intr.y, b4.y, b1.y, ty))
-                return false;
-            intersection.pixel = m_material.get_color(tx, ty);
-            get_reflect_refract_rays(ray, intersection);
-            return true;
-        }
-        //printf("no %f\n",A * intersection.point.x + B * intersection.point.y + C * intersection.point.z + D);
 
-        return false;
+        Vector intr = m_inverse.mul(intersection.point);
+        double tx, ty;
+        if (!is_in_border(intr.x, b1.x, b4.x, tx) ||
+            !is_in_border(intr.y, b4.y, b1.y, ty))
+            return false;
+        intersection.pixel = m_material.get_color(tx, ty);
+        get_reflect_refract_rays(ray, intersection);
+        return true;
     }
 };
 
 class ObjectBox : public Object{
 private:
-    //ObjectPlane planes[6];
     std::vector<ObjectPlane> planes;
     void init_plane(const Vector & pos, const Vector & rotate, const double & size,
                     const Material & material, Matrix & m)
     {
         m = m * Matrix::RotateX(rotate.x) * Matrix::RotateY(rotate.y) * Matrix::RotateZ(rotate.z) * Matrix::TranslateMatrix(pos);
         planes.push_back(ObjectPlane(m, size, size, material));
-        planes.back().id = id;
     }
 
 public:
@@ -227,10 +213,10 @@ public:
         intersection.normal = intersection.point - m_center;
         intersection.normal.normalize();
         get_reflect_refract_rays(ray, intersection);
+        intersection.pixel = Color(1, 1, 1);
         return true;
     }
     virtual bool RayIntersect(const Ray &ray, Intersection & intersection){
-        intersection.pixel = Color(1, 1, 1);
         double & R = m_radius;
         Vector v = ray.start_point - m_center;
         double B = v.dot(ray.vector);
@@ -252,16 +238,6 @@ public:
                 return false;
         }
         return intersect(ray, t, intersection);
-        return false;
-
-        if (t1 < 0 || t2 < 0)
-            return false;
-        if (t1 < t2)
-            return intersect(ray, t1, intersection);
-        else
-            return intersect(ray, t2, intersection);
-        return false;
-
     }
 };
 
