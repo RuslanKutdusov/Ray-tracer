@@ -12,6 +12,7 @@ struct Intersection{
     Vector  normal;
     Ray     reflect_ray;
     Ray     refract_ray;
+    double  reflect_amount;
     Color   pixel;
 };
 
@@ -37,6 +38,7 @@ public:
         intersection.reflect_ray.vector = i.reflect(n);
         intersection.reflect_ray.vector.normalize();
         intersection.reflect_ray.start_point = intersection.point;
+        intersection.reflect_amount = 1.0;
         if (m_material.m_refract_amount > 0){
             double refract_coef = m_material.m_refract_coef;
             double cos_i = -i.dot(n);
@@ -51,6 +53,9 @@ public:
                 intersection.refract_ray.vector = i.scalar(refract_coef) + n.scalar(refract_coef * cos_i - cos_t);
                 intersection.refract_ray.vector.normalize();
                 intersection.refract_ray.start_point = intersection.point;
+                double Rorto  = (cos_i - refract_coef * cos_t) / (cos_i + refract_coef * cos_t);
+                double Rparal = (refract_coef * cos_i - cos_t) / (refract_coef * cos_i + cos_t);
+                intersection.reflect_amount = (Rorto * Rorto + Rparal * Rparal) / 2.0;
             }
             else{
                 intersection.refract_ray = intersection.reflect_ray;
@@ -130,6 +135,7 @@ public:
             !is_in_border(intr.y, b4.y, b1.y, ty))
             return false;
         intersection.pixel = m_material.get_color(tx, ty);
+        //printf("%f %f %f\n", intersection.pixel.r, intersection.pixel.g, intersection.pixel.b );
         get_reflect_refract_rays(ray, intersection);
         return true;
     }

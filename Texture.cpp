@@ -4,6 +4,7 @@
 #include "Texture.hpp"
 #include <png.h>
 #include <stdio.h>
+#include <math.h>
 
 void PNGAPI error_function(png_structp png, png_const_charp dummy) {
   (void)dummy;  // remove variable-unused warning
@@ -95,9 +96,10 @@ void PNGAPI error_function(png_structp png, png_const_charp dummy) {
               image.image[i].b = rgb[stride * y + x * 4 + 3] / 255.0;
           }
           else{
-              image.image[i].r = rgb[stride * y + x * 3];
-              image.image[i].g = rgb[stride * y + x * 3 + 1];
-              image.image[i].b = rgb[stride * y + x * 3 + 2];
+        	  float gamma = 1.0f;
+              image.image[i].r = pow(rgb[stride * y + x * 3] / 255.0f, gamma );
+              image.image[i].g = pow(rgb[stride * y + x * 3 + 1] / 255.0f, gamma );
+              image.image[i].b = pow(rgb[stride * y + x * 3 + 2] / 255.0f, gamma );
           }
       }
   free(rgb);
@@ -106,3 +108,62 @@ void PNGAPI error_function(png_structp png, png_const_charp dummy) {
   fclose(fp);
   return ok;
 }
+
+ int save_png(const std::string & file_name, const image_t & image)
+ {
+	 	int i =0;
+ 		uint8_t* rgb = new uint8_t[ image.height * image.width * 3 ];
+ 		for(size_t y = 0; y < image.height; y++)
+ 			for(size_t x = 0; x < image.width; x++)
+ 			{
+ 				size_t j = y * image.width + x;
+ 				image.image[j].saturate();
+ 				rgb[i++] = image.image[j].r * 255.0;
+ 				rgb[i++] = image.image[j].g * 255.0;
+ 				rgb[i++] = image.image[j].b * 255.0;
+ 			}
+
+ 		png_structp png;
+ 		png_infop info;
+ 		png_uint_32 y;
+
+ 		png = png_create_write_struct(PNG_LIBPNG_VER_STRING, NULL, NULL, NULL);
+ 		if (png == NULL)
+ 			return -1;
+
+ 		info = png_create_info_struct(png);
+ 		if (info == NULL)
+ 		{
+ 			png_destroy_write_struct(&png, NULL);
+ 			return -1;
+ 		}
+
+ 		if (setjmp(png_jmpbuf(png)))
+ 		{
+ 			png_destroy_write_struct(&png, &info);
+ 			return -1;
+ 		}
+ 		FILE * fp = NULL;
+
+ 		fp = fopen(file_name.c_str(), "wb");
+ 		if (fp == NULL)
+ 		{
+ 			png_destroy_write_struct(&png, &info);
+ 			return -1;
+ 		}
+ 		png_init_io(png, fp);
+ 		png_set_IHDR(png, info, image.width, image.height, 8,
+ 			   PNG_COLOR_TYPE_RGB,
+ 			   PNG_INTERLACE_NONE, PNG_COMPRESSION_TYPE_DEFAULT,
+ 			   PNG_FILTER_TYPE_DEFAULT);
+ 		png_write_info(png, info);
+ 		for (y = 0; y < image.height; ++y)
+ 		{
+ 			png_bytep row = rgb + y * image.width * 3;
+ 			png_write_rows(png, &row, 1);
+ 		}
+ 		png_write_end(png, info);
+ 		png_destroy_write_struct(&png, &info);
+ 		fclose(fp);
+ 		return 0;
+ }

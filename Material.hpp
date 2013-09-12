@@ -1,6 +1,5 @@
 #ifndef MATERIAL_HPP
 #define MATERIAL_HPP
-#include <QColor>
 #include "Color.hpp"
 #include "Texture.hpp"
 

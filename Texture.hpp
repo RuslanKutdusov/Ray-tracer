@@ -18,6 +18,7 @@ struct image_t{
 };
 
 int read_png(const std::string & file_name, image_t & image);
+int save_png(const std::string & file_name, const image_t & image);
 uint8_t * ALPHA(const uint32_t & argb);
 uint8_t * RED(const uint32_t & argb);
 uint8_t * GREEN(const uint32_t & argb);
