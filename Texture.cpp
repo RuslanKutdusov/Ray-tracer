@@ -91,9 +91,9 @@ void PNGAPI error_function(png_structp png, png_const_charp dummy) {
       for(size_t x = 0; x < width; x++){
           size_t i = y * width + x;
           if (has_alpha) {
-              image.image[i].r = rgb[stride * y + x * 4 + 1] / 255.0;
-              image.image[i].g = rgb[stride * y + x * 4 + 2] / 255.0;
-              image.image[i].b = rgb[stride * y + x * 4 + 3] / 255.0;
+              image.image[i].r = rgb[stride * y + x * 4 + 1] / 255.0f;
+              image.image[i].g = rgb[stride * y + x * 4 + 2] / 255.0f;
+              image.image[i].b = rgb[stride * y + x * 4 + 3] / 255.0f;
           }
           else{
         	  float gamma = 1.0f;
@@ -118,9 +118,9 @@ void PNGAPI error_function(png_structp png, png_const_charp dummy) {
  			{
  				size_t j = y * image.width + x;
  				image.image[j].saturate();
- 				rgb[i++] = image.image[j].r * 255.0;
- 				rgb[i++] = image.image[j].g * 255.0;
- 				rgb[i++] = image.image[j].b * 255.0;
+ 				rgb[i++] = image.image[j].r * 255.0f;
+ 				rgb[i++] = image.image[j].g * 255.0f;
+ 				rgb[i++] = image.image[j].b * 255.0f;
  			}
 
  		png_structp png;

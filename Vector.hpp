@@ -7,15 +7,17 @@ class Vector{
 private:
 
 public:
-    double x;
-    double y;
-    double z;
-     Vector(){}
-    Vector(const double & x_, const double & y_, const double & z_)
+    float x;
+    float y;
+    float z;
+    Vector()
+    	: x( 0.0f ), y( 0.0f ), z( 0.0f )
+    {}
+    Vector(const float & x_, const float & y_, const float & z_)
         : x(x_), y(y_), z(z_)
     {
     }
-    double dot(const Vector& v) const{
+    float dot(const Vector& v) const{
         return x * v.x + y * v.y + z * v.z;
     }
     Vector operator+(const Vector& v) const{
@@ -29,20 +31,20 @@ public:
                       z * v.x - x * v.z,
                       x * v.y - y * v.x);
     }
-    Vector scalar(const double & s) const {
+    Vector scalar(const float & s) const {
         return Vector(x * s, y * s, z * s);
     }
-    double length() const{
+    float length() const{
         return sqrt(x * x + y * y + z * z);
     }
-    double distance(const Vector & v)const{
+    float distance(const Vector & v)const{
         return sqrt((x - v.x)*(x - v.x) + (y - v.y)*(y - v.y) + (z - v.z)*(z - v.z));
     }
     Vector reflect(const Vector& normal) const{
         return *this - normal.scalar(2 * dot(normal));
     }
     void normalize(){
-        double l = length();
+        float l = length();
         x = x / l;
         y = y / l;
         z = z / l;
@@ -50,16 +52,16 @@ public:
     Vector move(const Vector & v) const{
         return Vector(x + v.x, y + v.y, z + v.z);
     }
-    Vector rotate_x(const double & a) const{
+    Vector rotate_x(const float & a) const{
             return Vector(x, y * cos(a) + z * sin(a),
                              -y * sin(a) + z * cos(a));
     }
-    Vector rotate_y(const double & a) const{
+    Vector rotate_y(const float & a) const{
             return Vector(  x * cos(a) - z * sin(a),
                             y,
                             x * sin(a) + z * cos(a));
     }
-    Vector rotate_z(const double & a) const{
+    Vector rotate_z(const float & a) const{
             return Vector(  x * cos(a) + y * sin(a),
                             -x * sin(a) + y * cos(a),
                             z);
@@ -68,12 +70,12 @@ public:
 
 class Matrix{
 private:
-    double m[5][5] = { { 0 } };
+    float m[5][5] = { { 0 } };
     void identity(){
-        m[1][1] = 1;
-        m[2][2] = 1;
-        m[3][3] = 1;
-        m[4][4] = 1;
+        m[1][1] = 1.0f;
+        m[2][2] = 1.0f;
+        m[3][3] = 1.0f;
+        m[4][4] = 1.0f;
     }
 
 public:
@@ -81,7 +83,7 @@ public:
     {
         identity();
     }
-    static Matrix TranslateMatrix(const double & x, const double & y, const double & z) {
+    static Matrix TranslateMatrix(const float & x, const float & y, const float & z) {
         Matrix ret;
         ret.m[4][1] = x;
         ret.m[4][2] = y;
@@ -95,7 +97,7 @@ public:
         ret.m[4][3] = pos.z;
         return ret;
     }
-    static Matrix RotateX(const double & angle) {
+    static Matrix RotateX(const float & angle) {
         Matrix ret;
         ret.m[2][2] = cos(angle);
         ret.m[2][3] = sin(angle);
@@ -103,7 +105,7 @@ public:
         ret.m[3][3] = cos(angle);
         return ret;
     }
-    static Matrix RotateY(const double & angle) {
+    static Matrix RotateY(const float & angle) {
         Matrix ret;
         ret.m[1][1] = cos(angle);
         ret.m[1][3] = -sin(angle);
@@ -111,7 +113,7 @@ public:
         ret.m[3][3] = cos(angle);
         return ret;
     }
-    static Matrix RotateZ(const double & angle) {
+    static Matrix RotateZ(const float & angle) {
         Matrix ret;
         ret.m[1][1] = cos(angle);
         ret.m[1][2] = sin(angle);
@@ -134,13 +136,13 @@ public:
                       m[1][2] * v.x + m[2][2] * v.y + m[3][2] * v.z + m[4][2],
                       m[1][3] * v.x + m[2][3] * v.y + m[3][3] * v.z + m[4][3]);
     }
-    double det() const{
+    float det() const{
         return m[1][1] * ( m[2][2] * m[3][3] - m[2][3] * m[3][2] ) -
                          m[1][2] * ( m[2][1] * m[3][3] - m[2][3] * m[3][1] ) +
                          m[1][3] * ( m[2][1] * m[3][2] - m[2][2] * m[3][1] );
     }
     Matrix inverse() const{
-        double DetInv = 1 / det();
+        float DetInv = 1 / det();
         Matrix ret;
 
           ret.m[1][1] =  DetInv * ( m[2][2] * m[3][3] - m[2][3] * m[3][2] );
@@ -169,20 +171,20 @@ public:
 class Vector4{
 private:
 public:
-    double x;
-    double y;
-    double z;
-    double w;
+    float x;
+    float y;
+    float z;
+    float w;
      Vector4(){}
-    Vector4(const double & x_, const double & y_, const double & z_, const double & w_ = 1)
+    Vector4(const float & x_, const float & y_, const float & z_, const float & w_ = 1)
         : x(x_), y(y_), z(z_), w(w_)
     {
     }
-    double operator*(const Vector& v){
+    float operator*(const Vector& v){
         return x * v.x + y * v.y + z * v.z;
     }
     void normalize(){
-        double l = sqrt(x * x + y * y + z * z + w * w);
+        float l = sqrt(x * x + y * y + z * z + w * w);
         x = x / l;
         y = y / l;
         z = z / l;
@@ -191,13 +193,12 @@ public:
 };
 
 class Viewport{
-private:
-    Viewport() = default;
 public:
     Vector m_p1;
     Vector m_p2;
     Vector m_p3;
     Vector m_p4;
+    Viewport() = default;
     Viewport(const Vector & p1, const Vector & p2, const Vector & p3, const Vector & p4)
         : m_p1(p1), m_p2(p2), m_p3(p3), m_p4(p4)
     {

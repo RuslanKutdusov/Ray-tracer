@@ -1,6 +1,8 @@
 #include "raytracer.h"
 #include <stdio.h>
 #include <math.h>
+#include <time.h>
+#include <unistd.h>
 
 void RayTracer::prepare_scene()
 {
@@ -14,7 +16,7 @@ void RayTracer::prepare_scene()
     Material m8(Color(), Color(0.2, 0.7, 0.5), Color(0.5, 0.5, 0.5), 0.5, 10, 0, 0);
     Material m9(Color(), Color(), Color(0.5, 0.5, 0.5), 10000, 10, 1, 0.6);
 
-    double box_size = 12;
+    float box_size = 12;
 
     //YZ far
     Matrix m = Matrix::TranslateMatrix(-box_size / 2, 0, 0);
@@ -41,54 +43,83 @@ void RayTracer::prepare_scene()
     objects.push_back(new ObjectSphere(Vector(1.5, 2, 2), 2, m9));
     objects.push_back(new ObjectSphere(Vector(0, -2, -box_size / 2 + 4.5), 1.5, m7));
 
-    double x = 0, y = 0;
-    for(x = 0; x < 1; x += 0.2)
-        for(y = 0; y < 1; y += 0.2)
+    float x = 0.0f, y = 0.0f;
+    float light_intensity = 0.03f;
+    for(x = 0; x < 1; x += 0.2f)
+        for(y = 0; y < 1; y += 0.2f)
         {
-            lights.push_back(ObjectLight(Vector(x + 2,-4 + y, 2), Color(0.03, 0.03, 0.03)));
-            lights.push_back(ObjectLight(Vector(x + 4,y + 4, 3), Color(0.03, 0.03, 0.03)));
+            lights.push_back(ObjectLight(Vector(x + 2,-4 + y, 2), Color( light_intensity )));
+            lights.push_back(ObjectLight(Vector(x + 4,y + 4, 3), Color( light_intensity )));
         }
 }
 
 RayTracer::RayTracer( size_t width, size_t height )
+	: m_tasks_count( 0 )
 {
-	buf_width = width;
 	prepare_scene();
 
-	buf = new Color[ width * height ];
+	m_buf_size = width * height;
+	m_image.height = height;
+	m_image.width = width;
+	m_image.image = new Color[ m_buf_size ];
 
-	start_ray_tracing( width, height );
+	float aspectRatio = (float)width / (float)height;
+	m_cameraPos = Vector( 17.0f, 0.0f, 0.0f );
+	float viewportWidth = 6.0f;
+	float viewportHeight = viewportWidth / aspectRatio;
+	float f = 12.0f;
+	m_viewport = Viewport(Vector(f, -viewportWidth / 2.0f,  viewportHeight / 2.0f),
+					  	  Vector(f,  viewportWidth / 2.0f,  viewportHeight / 2.0f),
+					  	  Vector(f, -viewportWidth / 2.0f, -viewportHeight / 2.0f),
+					  	  Vector(f,  viewportWidth / 2.0f, -viewportHeight / 2.0f));
 
-	image_t image;
-	image.height = height;
-	image.width = width;
-	image.image = buf;
+	m_aaSamples = 1;
 
-	save_png("out.png", image );
+	//
+
+	timespec tp;
+	double startTime, endTime;
+
+	clock_gettime( CLOCK_REALTIME, &tp );
+	startTime = tp.tv_sec + tp.tv_nsec / 1000000000.0;
+
+	start_ray_tracing();
+
+	for( size_t i = 0; i < THREADS; i++ )
+		m_threads[ i ] = new std::thread( &RayTracer::thread, this, i );
+
+	for( size_t i = 0; i < THREADS; i++ )
+		m_threads[ i ]->join();
+
+	clock_gettime( CLOCK_REALTIME, &tp );
+	endTime = tp.tv_sec + tp.tv_nsec / 1000000000.0;
+
+	double renderTime = endTime - startTime;
+	printf( "Render time: %g\n", renderTime );
+
+	save_png("out.png", m_image );
 }
 
 RayTracer::~RayTracer()
 {
-    delete[] buf;
-
-    for( auto ptr : objects )
-    	delete ptr;
+//    delete[] buf;
+//
+//    for( auto ptr : objects )
+//    	delete ptr;
 }
 
-#define MAX_DEPTH  5
-
-Color RayTracer::ray_tracing(const Ray & ray, const int &depth, int & rays_count, double * distance)
+Color RayTracer::ray_tracing(const Ray & ray, const int &depth, int & rays_count, float * distance)
 {
     if (depth == MAX_DEPTH)
         return Color(0, 0, 0);
     Color ret(0, 0, 0);
     Intersection intr;
     int i_object = -1;
-    double distance2obj = INFINITY;
+    float distance2obj = INFINITY;
     for(size_t i = 0; i < objects.size(); i++){
         Intersection in;
         if (objects[i]->RayIntersect(ray, in)){
-            double dist = in.point.distance(ray.start_point);
+            float dist = in.point.distance(ray.start_point);
             if (dist < distance2obj){
                 distance2obj = dist;
                 intr = in;
@@ -109,7 +140,7 @@ Color RayTracer::ray_tracing(const Ray & ray, const int &depth, int & rays_count
     Color diffuse;
     Color specular;
     for(size_t i = 0; i < lights.size(); i++){
-        double distance2light = lights[i].distance(intr.point);
+        float distance2light = lights[i].distance(intr.point);
         Ray to_light(lights[i].m_center, intr.point);
 
         //проверям, в тени какого либо объекта или нет
@@ -117,7 +148,7 @@ Color RayTracer::ray_tracing(const Ray & ray, const int &depth, int & rays_count
         for(size_t j = 0; j < objects.size(); j++){
             Intersection intr2;
             if (objects[j]->RayIntersect(to_light, intr2)){
-                double distance_ = intr2.point.distance(intr.point);
+                float distance_ = intr2.point.distance(intr.point);
                 if (distance_ < distance2light){
                     i_object_in_shadow = true;
                     break;
@@ -127,7 +158,7 @@ Color RayTracer::ray_tracing(const Ray & ray, const int &depth, int & rays_count
         if (i_object_in_shadow)
             continue;
 
-        double angle_cos = to_light.vector.dot(intr.normal);
+        float angle_cos = to_light.vector.dot(intr.normal);
         if (angle_cos > 0){
             if (!objects[i_object]->m_material.m_diffuse.is_black())
                 diffuse = diffuse + lights[i].m_color * (angle_cos );
@@ -136,10 +167,10 @@ Color RayTracer::ray_tracing(const Ray & ray, const int &depth, int & rays_count
         }
     }
 
-    double d = 0;
+    float d = 0;
 
-    const double & R = intr.reflect_amount;
-    double T = 1.0 - R;
+    const float & R = intr.reflect_amount;
+    float T = 1.0 - R;
 
     Color reflect_ray_color = ray_tracing(intr.reflect_ray, depth_, rays_count, &d);
     reflect_ray_color = reflect_ray_color * exp(-objects[i_object]->m_material.m_beta) * R;
@@ -153,57 +184,70 @@ Color RayTracer::ray_tracing(const Ray & ray, const int &depth, int & rays_count
           objects[i_object]->m_material.m_specular * specular +
             reflect_ray_color +
             refract_ray_color ;
-    //fflush(stdout);
     return ret;
 }
 
-void RayTracer::start_ray_tracing(const size_t & width, const size_t & height)
+void RayTracer::start_ray_tracing()
 {
-    double ratio = (double)width / (double)height;
-    Vector camera_pos(17, 0, 0);
-    double w = 6;
-    double h = w / ratio;
-    double f = 12;
-    Viewport viewport(Vector(f, -w/2, h/2),
-                      Vector(f, w/2, h/2),
-                      Vector(f, -w/2, -h/2),
-                      Vector(f, w/2, -h/2));
-    double step_y = w / width;
+    float step_y = m_viewport.m_p2.y * 2.0f / m_image.width;
+    int pixel_index = 0;
+    float z = m_viewport.m_p1.z;
 
-    int j = 0;
-    double z = viewport.m_p1.z;
-    //for(double y = viewport.m_p1.y; y < viewport.m_p2.y; y += step_y){
-    for( int xx = 0; xx < width; xx++ )
+    for( int xx = 0; xx < m_image.width; xx++ )
     {
-    	//y += step_y;
     	z -= step_y;
-        int rays_count = 0;
-        double y = viewport.m_p1.y;
-        //for(double z = viewport.m_p1.z; z > viewport.m_p3.z; z -= step_y){
-        for( int yy = 0; yy < height; yy++ ){
-        	//z -= step_y;
+
+        float y = m_viewport.m_p1.y;
+
+        for( int yy = 0; yy < m_image.height; yy++ )
+        {
         	y += step_y;
-            Matrix m = Matrix::RotateY(-0.1);
-            Vector diffs[4] = { Vector(0, 0, 0), Vector(0, step_y / 2, 0), Vector(0, step_y / 2, step_y / 2), Vector(0, 0, step_y / 2) };
-            buf[j] = Color();
-            size_t samples = 1;
-            int rays_count_per_sample = 0;
-            for(size_t i = 0; i < samples; i++){
-                Vector viewport_point(viewport.m_p1.x, y, z);
-                viewport_point = viewport_point + diffs[i];
-                Ray first_ray(viewport_point, camera_pos);
-                first_ray.start_point = camera_pos + Vector(0, 0, -1);
-                first_ray.vector = m.mul(first_ray.vector);
-                buf[j] = buf[j] + ray_tracing(first_ray, 0, rays_count_per_sample, NULL);
-                rays_count += rays_count_per_sample;
-            }
-            double lum = buf[j].luminance();
-            buf[j] = buf[j] / ( lum + 1.0 );
-            buf[j] = ( buf[j] / samples ) ^ ( 1.0f / 2.2f );
-            j++;
-            //buf[(int)xx][(int)yy] = ray_tracing(first_ray, 0, rays_count, NULL);
+
+            //Vector diffs[4] = { Vector(0, 0, 0), Vector(0, step_y / 2.0f, 0), Vector(0, step_y / 2.0f, step_y / 2.0f), Vector(0, 0, step_y / 2.0f) };
+
+            m_image.image[pixel_index] = Color();
+
+            Vector viewport_point( m_viewport.m_p1.x, y, z );
+  		   	//viewport_point = viewport_point + diffs[sample];
+            //Ray first_ray( viewport_point, camera_pos );
+
+			m_tasks.push_back( thread_task( pixel_index, viewport_point ) );
+			m_tasks_count++;
+            pixel_index++;
         }
-        printf("%d/%u rays=%d\n", (int)xx, width, rays_count);
-        fflush(stdout);
     }
+}
+
+void RayTracer::thread( uint8_t thread_index )
+{
+	int rays_count = 0;
+	while( 1 ){
+		thread_task task;
+		{
+			std::lock_guard<std::recursive_mutex> lock( m_mutex );
+
+			if( m_tasks_count % 10000 == 0 )
+				printf("thread%u tasks done %u/%u\n", thread_index, m_tasks_count, m_buf_size );
+
+			if( m_tasks_count == 0 )
+				break;
+
+			task = m_tasks.front();
+			m_tasks.pop_front();
+
+			m_tasks_count--;
+		}
+
+		Ray first_ray( task.pointOnViewport, m_cameraPos );
+
+		const int j = task.pixel_index;
+		m_image.image[ j ] = m_image.image[ j ] + ray_tracing( first_ray, 0, rays_count, nullptr );
+		if ( j == m_aaSamples - 1)
+		{
+			m_image.image[j].tone_mapping();
+			// gamma correction
+			m_image.image[j] = ( m_image.image[j] / m_aaSamples ) ^ ( 1.0f / 2.2f );
+		}
+	}
+	printf("Thread%u done, rays calculated=%d\n", thread_index, rays_count );
 }
