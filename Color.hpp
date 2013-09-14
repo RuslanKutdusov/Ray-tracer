@@ -13,14 +13,15 @@ public:
     float r;
     float g;
     float b;
+    float a;
     Color()
-        : r( 0.0f ), g( 0.0f ), b( 0.0f )
+        : r( 0.0f ), g( 0.0f ), b( 0.0f ), a( 0.0f )
     {}
     Color(const float & r_, const float & g_, const float & b_)
-        : r(r_), g(g_), b(b_)
+        : r(r_), g(g_), b(b_), a( 0.0f )
     {}
     Color( const float & c)
-    	: r( c ), g( c ), b( c )
+    	: r( c ), g( c ), b( c ), a( 0.0f )
     {}
     virtual ~Color(){}
     void normalize(){
@@ -72,6 +73,6 @@ public:
     	g = pow( g, gamma );
     	b = pow( b, gamma );
     }
-};
+} __attribute__ ((aligned(16)));;
 
 #endif // COLOR_HPP

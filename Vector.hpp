@@ -10,21 +10,27 @@ public:
     float x;
     float y;
     float z;
+    float w;
     Vector()
-    	: x( 0.0f ), y( 0.0f ), z( 0.0f )
+    	: x( 0.0f ), y( 0.0f ), z( 0.0f ), w( 0.0f )
     {}
+    Vector( const __m128 & v )
+    	: x( 0.0f ), y( 0.0f ), z( 0.0f ), w( 0.0f )
+    {
+    	*(__m128*)this = v;
+    }
     Vector(const float & x_, const float & y_, const float & z_)
-        : x(x_), y(y_), z(z_)
+        : x(x_), y(y_), z(z_), w( 0.0f )
     {
     }
     float dot(const Vector& v) const{
         return x * v.x + y * v.y + z * v.z;
     }
     Vector operator+(const Vector& v) const{
-        return Vector(x + v.x, y + v.y, z + v.z);
+    	return Vector( _mm_add_ps( *(__m128*)this, *(__m128*)&v ) );
     }
     Vector operator-(const Vector& v) const{
-        return Vector(x - v.x, y - v.y, z - v.z);
+    	return Vector( _mm_sub_ps( *(__m128*)this, *(__m128*)&v ) );
     }
     Vector operator*(const Vector& v) const{
         return Vector(y * v.z - z * v.y,
@@ -66,7 +72,7 @@ public:
                             -x * sin(a) + y * cos(a),
                             z);
     }
-};
+} __attribute__ ((aligned(16)));
 
 class Matrix{
 private:
