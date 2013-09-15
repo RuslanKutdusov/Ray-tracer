@@ -1,11 +1,11 @@
 #include "Vector.hpp"
 
-#define SSE_DOT 	0
-#define SSE_ADD_SUB 0//win!!
-#define SSE_MUL		0
-#define SSE_SCALAR	0
-#define SSE_LENGTH	0//win!!
-#define SSE_DISTANCE 0
+#define SSE_DOT 	 1
+#define SSE_ADD_SUB  1
+#define SSE_MUL		 1
+#define SSE_SCALAR	 1
+#define SSE_LENGTH	 1
+#define SSE_DISTANCE 1
 
 Vector::Vector()
 	: x( 0.0f ), y( 0.0f ), z( 0.0f ), w( 0.0f )
@@ -32,20 +32,10 @@ float Vector::dot(const Vector& v) const
 	__m128* a = (__m128*)this;
 	__m128* b = (__m128*)&v;
 	float r;
-	asm("movaps 	(%1), %%xmm0;\n"
-		"movaps		(%2), %%xmm1;\n"
-
-		"mulps		%%xmm1, %%xmm0;\n"
-
-		"haddps		%%xmm0, %%xmm0;\n"
-		"haddps		%%xmm0, %%xmm0;\n"
-
-		"movss		%%xmm0, (%0);\n"
-
-		:
-		: "r"(&r), "r"(a), "r"(b)
-		: "%xmm0", "%xmm1"
-	);
+	__m128 r1 = _mm_mul_ps(*a, *b);
+	r1 = _mm_hadd_ps(r1, r1);
+	r1 = _mm_hadd_ps(r1, r1);
+	_mm_store_ss(&r, r1);
 	return r;
 #else
 	return x * v.x + y * v.y + z * v.z;
@@ -118,20 +108,14 @@ Vector Vector::scalar(const float & s) const
 float Vector::length() const
 {
 #if SSE_LENGTH
-	asm("movaps 	(%0), %%xmm0;\n"
-
-		"mulps		%%xmm0, %%xmm0;\n"
-
-		"haddps		%%xmm0, %%xmm0;\n"
-		"haddps		%%xmm0, %%xmm0;\n"
-
-		"sqrtss		%%xmm0, %%xmm0;\n"
-		"retq;\n"
-
-		:
-		: "r"( (__m128*)this )
-		: "%xmm0"
-	);
+	__m128* a = (__m128*)this;
+	float r;
+	__m128 r1 = _mm_mul_ps(*a, *a);
+	r1 = _mm_hadd_ps(r1, r1);
+	r1 = _mm_hadd_ps(r1, r1);
+	r1 = _mm_sqrt_ss(r1);
+	_mm_store_ss(&r, r1);
+	return r;
 #else
 	return sqrt(x * x + y * y + z * z);
 #endif
@@ -141,23 +125,16 @@ float Vector::length() const
 float Vector::distance(const Vector & v)const
 {
 #if SSE_DISTANCE
-	asm("movaps		(%0), %%xmm0;\n"
-		"movaps		(%1), %%xmm1;\n"
-
-		"subps		%%xmm1, %%xmm0;\n"
-		"mulps		%%xmm0, %%xmm0;\n"
-
-		"haddps		%%xmm0, %%xmm0;\n"
-		"haddps		%%xmm0, %%xmm0;\n"
-
-		"sqrtss		%%xmm0, %%xmm0;\n"
-
-		"ret;\n"
-
-		:
-		: "r"((__m128*)this), "r"((__m128*)&v)
-		: "%xmm0", "%xmm1"
-	);
+	__m128* a = (__m128*)this;
+	__m128* b = (__m128*)&v;
+	float r;
+	__m128 r1 = _mm_sub_ps( *a, *b );
+	r1 = _mm_mul_ps( r1, r1 );
+	r1 = _mm_hadd_ps(r1, r1);
+	r1 = _mm_hadd_ps(r1, r1);
+	r1 = _mm_sqrt_ss(r1);
+	_mm_store_ss(&r, r1);
+	return r;
 #else
 	return sqrt((x - v.x)*(x - v.x) + (y - v.y)*(y - v.y) + (z - v.z)*(z - v.z));
 #endif
@@ -169,25 +146,13 @@ Vector Vector::reflect(const Vector& normal) const{
 
 void Vector::normalize(){
 #if SSE_LENGTH
-	asm("movaps 	(%0), %%xmm0;\n"
-		"movaps 	(%0), %%xmm1;\n"
-
-		"mulps		%%xmm0, %%xmm0;\n"
-
-		"haddps		%%xmm0, %%xmm0;\n"
-		"haddps		%%xmm0, %%xmm0;\n"
-
-		"sqrtss		%%xmm0, %%xmm0;\n"//length
-
-		"shufps		$0x00, %%xmm0, %%xmm0;\n"
-
-		"divps		%%xmm0, %%xmm1;\n"
-		"movaps		%%xmm1, (%0);\n"
-
-		:
-		: "r"( (__m128*)this )
-		: "%xmm0"
-	);
+	__m128* a = (__m128*)this;
+	__m128 r1 = _mm_mul_ps(*a, *a);
+	r1 = _mm_hadd_ps(r1, r1);
+	r1 = _mm_hadd_ps(r1, r1);
+	r1 = _mm_sqrt_ss(r1);
+	r1 = _mm_shuffle_ps( r1, r1, 0 );
+	*a = _mm_div_ps( *a, r1 );
 #else
 	float l = length();
 	x = x / l;

@@ -6,7 +6,7 @@
 #define SSE 1
 
 #if SSE
-#include <xmmintrin.h>
+#include <x86intrin.h>
 #endif
 
 class Vector{

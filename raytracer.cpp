@@ -226,8 +226,8 @@ void RayTracer::thread( uint8_t thread_index )
 		{
 			std::lock_guard<std::recursive_mutex> lock( m_mutex );
 
-			if( m_tasks_count % 10000 == 0 )
-				printf("thread%u tasks done %u/%u\n", thread_index, m_tasks_count, m_buf_size );
+			//if( m_tasks_count % 10000 == 0 )
+				//printf("thread%u tasks done %u/%u\n", thread_index, m_tasks_count, m_buf_size );
 
 			if( m_tasks_count == 0 )
 				break;
@@ -249,5 +249,5 @@ void RayTracer::thread( uint8_t thread_index )
 			m_image.image[j] = ( m_image.image[j] / m_aaSamples ) ^ ( 1.0f / 2.2f );
 		}
 	}
-	printf("Thread%u done, rays calculated=%d\n", thread_index, rays_count );
+	//printf("Thread%u done, rays calculated=%d\n", thread_index, rays_count );
 }
