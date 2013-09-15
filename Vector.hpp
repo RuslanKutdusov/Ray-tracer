@@ -1,7 +1,13 @@
 #ifndef POINT_HPP
 #define POINT_HPP
-#include <xmmintrin.h>
+
 #include <math.h>
+
+#define SSE 1
+
+#if SSE
+#include <xmmintrin.h>
+#endif
 
 class Vector{
 private:
@@ -11,53 +17,21 @@ public:
     float y;
     float z;
     float w;
-    Vector()
-    	: x( 0.0f ), y( 0.0f ), z( 0.0f ), w( 0.0f )
-    {}
-    Vector( const __m128 & v )
-    	: x( 0.0f ), y( 0.0f ), z( 0.0f ), w( 0.0f )
-    {
-    	*(__m128*)this = v;
-    }
-    Vector(const float & x_, const float & y_, const float & z_)
-        : x(x_), y(y_), z(z_), w( 0.0f )
-    {
-    }
-    float dot(const Vector& v) const{
-        return x * v.x + y * v.y + z * v.z;
-    }
-    Vector operator+(const Vector& v) const{
-    	return Vector( _mm_add_ps( *(__m128*)this, *(__m128*)&v ) );
-    }
-    Vector operator-(const Vector& v) const{
-    	return Vector( _mm_sub_ps( *(__m128*)this, *(__m128*)&v ) );
-    }
-    Vector operator*(const Vector& v) const{
-        return Vector(y * v.z - z * v.y,
-                      z * v.x - x * v.z,
-                      x * v.y - y * v.x);
-    }
-    Vector scalar(const float & s) const {
-        return Vector(x * s, y * s, z * s);
-    }
-    float length() const{
-        return sqrt(x * x + y * y + z * z);
-    }
-    float distance(const Vector & v)const{
-        return sqrt((x - v.x)*(x - v.x) + (y - v.y)*(y - v.y) + (z - v.z)*(z - v.z));
-    }
-    Vector reflect(const Vector& normal) const{
-        return *this - normal.scalar(2 * dot(normal));
-    }
-    void normalize(){
-        float l = length();
-        x = x / l;
-        y = y / l;
-        z = z / l;
-    }
-    Vector move(const Vector & v) const{
-        return Vector(x + v.x, y + v.y, z + v.z);
-    }
+    Vector();
+#if SSE
+    Vector( const __m128 & v );
+#endif
+    Vector(const float & x_, const float & y_, const float & z_);
+    float dot(const Vector& v) const;
+    Vector operator+(const Vector& v) const;
+    Vector operator-(const Vector& v) const;
+    Vector operator*(const Vector& v) const;
+    Vector scalar(const float & s) const;
+    float length() const;
+    float distance(const Vector & v)const;
+    Vector reflect(const Vector& normal) const;
+    void normalize();
+    Vector move(const Vector & v) const;
     Vector rotate_x(const float & a) const{
             return Vector(x, y * cos(a) + z * sin(a),
                              -y * sin(a) + z * cos(a));
@@ -72,7 +46,13 @@ public:
                             -x * sin(a) + y * cos(a),
                             z);
     }
-} __attribute__ ((aligned(16)));
+}
+#if SSE
+__attribute__ ((aligned(16)));
+#else
+;
+#endif
+
 
 class Matrix{
 private:
@@ -213,4 +193,5 @@ public:
 
 typedef Viewport Rect;
 
-#endif // POINT_HPP
+#endif
+

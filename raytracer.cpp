@@ -44,9 +44,9 @@ void RayTracer::prepare_scene()
     objects.push_back(new ObjectSphere(Vector(0, -2, -box_size / 2 + 4.5), 1.5, m7));
 
     float x = 0.0f, y = 0.0f;
-    float light_intensity = 0.03f * 25.0f;
-    //for(x = 0; x < 1; x += 0.2f)
-        //for(y = 0; y < 1; y += 0.2f)
+    float light_intensity = 0.03f;
+    for(x = 0; x < 1; x += 0.2f)
+        for(y = 0; y < 1; y += 0.2f)
         {
             lights.push_back(ObjectLight(Vector(x + 2,-4 + y, 2), Color( light_intensity )));
             lights.push_back(ObjectLight(Vector(x + 4,y + 4, 3), Color( light_intensity )));
@@ -189,7 +189,7 @@ Color RayTracer::ray_tracing(const Ray & ray, const int &depth, int & rays_count
 
 void RayTracer::start_ray_tracing()
 {
-    float step_y = m_viewport.m_p2.y * 2.0f / m_image.width;
+    float step_y = m_viewport.m_p2.y * 2.0f / (float)m_image.width;
     int pixel_index = 0;
     float z = m_viewport.m_p1.z;
 
