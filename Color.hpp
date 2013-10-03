@@ -1,6 +1,7 @@
 #ifndef COLOR_HPP
 #define COLOR_HPP
 
+#include "cuda.hpp"
 #include <math.h>
 
 template<class T>
@@ -14,64 +15,56 @@ public:
     float g;
     float b;
     float a;
-    Color()
-        : r( 0.0f ), g( 0.0f ), b( 0.0f ), a( 0.0f )
+    HOST_DEVICE Color()
+        //: r( 0.0f ), g( 0.0f ), b( 0.0f ), a( 0.0f )
     {}
-    Color(const float & r_, const float & g_, const float & b_)
+    HOST_DEVICE Color(const float & r_, const float & g_, const float & b_)
         : r(r_), g(g_), b(b_), a( 0.0f )
     {}
-    Color( const float & c)
+    HOST_DEVICE Color( const float & c)
     	: r( c ), g( c ), b( c ), a( 0.0f )
     {}
-    virtual ~Color(){}
-    void normalize(){
-        if (r > 1.0f )
-            r = 1.0f;
-        if (g > 1.0f )
-            g = 1.0f;
-        if (b > 1.0f )
-            b = 1.0f;
-    }
-    Color operator+(const Color & c) const{
+    HOST_DEVICE ~Color(){}
+    HOST_DEVICE Color operator+(const Color & c) const{
         return Color(r + c.r, g + c.g, b + c.b);
     }
-    Color operator-(const Color & c) const{
+    HOST_DEVICE Color operator-(const Color & c) const{
         return Color(r - c.r, g - c.g, b - c.b);
     }
-    Color operator*(const Color & c) const{
+    HOST_DEVICE Color operator*(const Color & c) const{
         return Color(r * c.r, g * c.g, b * c.b);
     }
-    Color operator*(const float & k) const{
+    HOST_DEVICE Color operator*(const float & k) const{
         return Color(k * r, k *  g, k * b);
     }
-    Color operator/(const float & k) const{
+    HOST_DEVICE Color operator/(const float & k) const{
         return Color(r / k, g / k, b / k);
     }
-    Color operator^(const float & k) const{
+    HOST_DEVICE Color operator^(const float & k) const{
         return Color( pow( r, k ), pow( g, k ), pow( b, k ) );
     }
-    bool is_black() const{
+    HOST_DEVICE bool is_black() const{
         return r == 0.0f && g == 0.0f && b == 0.0f;
     }
-    void saturate(){
+    HOST_DEVICE void saturate(){
     	r = saturated<float>( r );
     	g = saturated<float>( g );
     	b = saturated<float>( b );
     }
-    float luminance(){
+    HOST_DEVICE float luminance(){
     	return 0.299f * r + 0.587f * g  + 0.114f * b;
     }
-    void tone_mapping(){
+    HOST_DEVICE void tone_mapping(){
     	float lum = luminance();
     	r /= lum + 1.0f;
     	g /= lum + 1.0f;
     	b /= lum + 1.0f;
     }
-    void gamma_correction(){
+    HOST_DEVICE void gamma_correction(){
     	float gamma = 1.0f / 2.2f;
-    	r = pow( r, gamma );
-    	g = pow( g, gamma );
-    	b = pow( b, gamma );
+    	r = powf( r, gamma );
+    	g = powf( g, gamma );
+    	b = powf( b, gamma );
     }
 } __attribute__ ((aligned(16)));;
 

@@ -21,18 +21,18 @@ private:
 
 public:
     Material m_material;
-    Object(){
+    HOST_DEVICE Object(){
 
     }
 
-    Object(const Material & material)
-        : m_material(material)
+    HOST_DEVICE Object( const Material & material )
+        : m_material( material )
     {
 
     }
-    virtual ~Object(){
+    HOST_DEVICE virtual ~Object(){
     }
-    void get_reflect_refract_rays(const Ray & ray, Intersection & intersection){
+    HOST_DEVICE void get_reflect_refract_rays(const Ray & ray, Intersection & intersection) const{
         Vector i = ray.vector;
         Vector n = intersection.normal;
         intersection.reflect_ray.vector = i.reflect(n);
@@ -63,7 +63,7 @@ public:
         }
 
     }
-    bool is_in_border(const float & v, const float & b1, const float & b2, float & t){
+    HOST_DEVICE bool is_in_border(const float & v, const float & b1, const float & b2, float & t) const{
         t = (v - b1) / (b2 - b1);
         t = t > 1.0f ? 1.0f : t;
         if ((v >= b1 && v <= b2))// || (v >= b2 && v <= b1))
@@ -72,19 +72,19 @@ public:
             return true;
         return false;
     }
-    virtual bool RayIntersect(const Ray & ray, Intersection & intersection) = 0;
+    HOST_DEVICE virtual bool RayIntersect(const Ray & ray, Intersection & intersection) const = 0;
 };
 
 class ObjectPlane : public Object{
 private:
-    Vector4 abcd;
+    Vector abcd;
     Vector normal;
     Vector b1;
     Vector b4;
     Matrix m_inverse;
 public:
-    ObjectPlane() = default;
-    ObjectPlane(const Matrix & m, const float & width, const float & height,
+    HOST_DEVICE ObjectPlane(){}
+    HOST_DEVICE ObjectPlane(const Matrix & m, const float & width, const float & height,
                 const Material & material, bool inverse_normal = false)
         : Object(material)
     {
@@ -99,14 +99,14 @@ public:
         if (!inverse_normal)
             normal = normal.scalar(-1);
         normal.normalize();
-        abcd = Vector4(normal.x, normal.y, normal.z, -normal.dot(c));
+        abcd = Vector(normal.x, normal.y, normal.z, -normal.dot(c));
     }
-    virtual bool RayIntersect(const Ray &ray, Intersection & intersection){
+    HOST_DEVICE virtual bool RayIntersect(const Ray &ray, Intersection & intersection) const{
         intersection.normal = normal;
-        float & A = abcd.x;
-        float & B = abcd.y;
-        float & C = abcd.z;
-        float & D = abcd.w;
+        const float & A = abcd.x;
+        const float & B = abcd.y;
+        const float & C = abcd.z;
+        const float & D = abcd.w;
         const float & x0 = ray.start_point.x;
         const float & y0 = ray.start_point.y;
         const float & z0 = ray.start_point.z;
@@ -143,48 +143,49 @@ public:
 
 class ObjectBox : public Object{
 private:
-    std::vector<ObjectPlane> planes;
-    void init_plane(const Vector & pos, const Vector & rotate, const float & size,
-                    const Material & material, Matrix & m)
+	static const int PLANES_COUNT = 6;
+    ObjectPlane planes[ PLANES_COUNT ];
+    HOST_DEVICE void init_plane(const Vector & pos, const Vector & rotate, const float & size,
+                    const Material & material, Matrix & m, int plane_index)
     {
         m = m * Matrix::RotateX(rotate.x) * Matrix::RotateY(rotate.y) * Matrix::RotateZ(rotate.z) * Matrix::TranslateMatrix(pos);
-        planes.push_back(ObjectPlane(m, size, size, material));
+        planes[ plane_index ] = ObjectPlane(m, size, size, material);
     }
 
 public:
-    ObjectBox(const Vector & pos, const Vector & rotate, const float & size,// const float & height,const float & depth,
+    HOST_DEVICE ObjectBox(const Vector & pos, const Vector & rotate, const float & size,// const float & height,const float & depth,
               const Material & material)
         : Object(material)
     {
         Matrix m;
         //XY bottom
         m = Matrix::TranslateMatrix( 0.0f, 0.0f, -size / 2.0f );
-        init_plane(pos, rotate, size, material, m);
+        init_plane(pos, rotate, size, material, m, 0);
         //XY top
         m = Matrix::TranslateMatrix( 0.0f, 0.0f, size / 2.0f);
-        init_plane(pos, rotate, size, material, m);
+        init_plane(pos, rotate, size, material, m, 1);
         //YZ far
         m = Matrix::TranslateMatrix( -size / 2.0f, 0.0f, 0.0f);
         m = Matrix::RotateY(-PI / 2.0f) * m;
-        init_plane(pos, rotate, size, material, m);
+        init_plane(pos, rotate, size, material, m, 2);
         //YZ nead
         m = Matrix::TranslateMatrix(size / 2.0f, 0.0f, 0.0f);
         m = Matrix::RotateY(PI / 2.0f) * m;
-        init_plane(pos, rotate, size, material, m);;
+        init_plane(pos, rotate, size, material, m, 3);
         //XZ right
         m = Matrix::TranslateMatrix(0.0f, size / 2.0f, 0);
         m = Matrix::RotateX(-PI / 2.0f) * m;
-        init_plane(pos, rotate, size, material, m);
+        init_plane(pos, rotate, size, material, m, 4);
         //XZ left
         m = Matrix::TranslateMatrix(0.0f, -size / 2.0f, 0);
         m = Matrix::RotateX(PI / 2.0f) * m;
-        init_plane(pos, rotate, size, material, m);;
+        init_plane(pos, rotate, size, material, m, 5);
     }
-    virtual bool RayIntersect(const Ray &ray, Intersection &intersection){
+    HOST_DEVICE virtual bool RayIntersect(const Ray &ray, Intersection &intersection) const{
         Intersection intr;
         int i_plane = -1;
         float distance2obj = INFINITY;
-        for(size_t i = 0; i < planes.size(); i++){
+        for( size_t i = 0; i < PLANES_COUNT; i++ ){
             Intersection in;
             if (planes[i].RayIntersect(ray, in)){
                 float dist = in.point.distance(ray.start_point);
@@ -204,15 +205,15 @@ public:
 
 class ObjectSphere : public Object{
 private:
-    ObjectSphere() = default;
+    HOST_DEVICE ObjectSphere() {}
 public:
     Vector m_center;
     float m_radius;
-    ObjectSphere(const Vector & center, const float & radius, const Material & material)
+    HOST_DEVICE ObjectSphere(const Vector & center, const float & radius, const Material & material)
         : Object(material), m_center(center), m_radius(radius)
     {
     }
-    bool intersect(const Ray &ray, const float & t, Intersection & intersection){
+    HOST_DEVICE bool intersect(const Ray &ray, const float & t, Intersection & intersection) const{
         intersection.point = ray.point(t);
         if (fabs((intersection.point - m_center).length() - m_radius) > EPSILON)
                 return false;
@@ -222,8 +223,8 @@ public:
         intersection.pixel = Color(1.0f, 1.0f, 1.0f);
         return true;
     }
-    virtual bool RayIntersect(const Ray &ray, Intersection & intersection){
-        float & R = m_radius;
+    HOST_DEVICE virtual bool RayIntersect(const Ray &ray, Intersection & intersection) const{
+        const float & R = m_radius;
         Vector v = ray.start_point - m_center;
         float B = v.dot(ray.vector);
         float C = v.dot(v) - R * R;
@@ -249,22 +250,22 @@ public:
 
 class ObjectLight {
 private:
-    ObjectLight() = default;
+    ObjectLight(){}
 public:
     Color m_color;
     Vector m_center;
     float m_radius;
-    ObjectLight(const Vector & center, const Color & color)
+    HOST_DEVICE ObjectLight(const Vector & center, const Color & color)
         : m_color(color), m_center(center), m_radius(0)
     {}
-    bool RayIntersectLight(const Ray &ray){
+    HOST_DEVICE bool RayIntersectLight(const Ray &ray){
         Vector v(m_center.x - ray.start_point.x,
                  m_center.y - ray.start_point.y,
                  m_center.z - ray.start_point.z);
         float distance = (v * ray.vector).length() / ray.vector.length();
         return !(distance > m_radius);
     }
-    float distance(const Vector & point){
+    HOST_DEVICE float distance(const Vector & point) const{
         return m_center.distance(point);
     }
 };

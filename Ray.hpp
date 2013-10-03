@@ -1,32 +1,47 @@
 #ifndef RAY_HPP
 #define RAY_HPP
 
+#include "cuda.hpp"
 #include "Vector.hpp"
 
 class Ray{
 private:
 public:
-    Vector vector;
-    Vector  start_point;
-    Ray() = default;
-    Ray(const Vector & end_point, const Vector & start_point_)
-        : vector(end_point.x - start_point_.x, end_point.y - start_point_.y, end_point.z - start_point_.z),
-          start_point(start_point_)
+    Vector	vector;
+    Vector 	start_point;
+    HOST_DEVICE Ray() {}
+    HOST_DEVICE Ray( const Vector & end_point, const Vector & start_point_ )
+        : vector( end_point.x - start_point_.x, end_point.y - start_point_.y, end_point.z - start_point_.z ),
+          start_point( start_point_ )
     {
-        vector.normalize();
+        vector.normalize();//sure?
     }
-    virtual ~Ray(){
+    HOST_DEVICE ~Ray()
+    {
     }
-    Vector point(const double & t) const{
-        const double& x0 = start_point.x;
-        const double & y0 = start_point.y;
-        const double & z0 = start_point.z;
-        const double & alfa =  vector.x;
-        const double & beta = vector.y;
-        const double & gamma = vector.z;
+//    HOST_DEVICE Ray operator=( const Ray & r )
+//    {
+//    	if( this != &r )
+//    	{
+//    		vector = r.vector;
+//    		start_point = r.start_point;
+//    	}
+//    	return *this;
+//    }
+    HOST_DEVICE Vector point( const float & t ) const
+    {
+        const float& x0 = start_point.x;
+        const float & y0 = start_point.y;
+        const float & z0 = start_point.z;
+        //const float & w0 = start_point.w;
+        const float & alfa =  vector.x;
+        const float & beta = vector.y;
+        const float & gamma = vector.z;
+        //const float & delta = vector.w;
         return Vector(x0 + alfa * t,
                    y0 + beta * t,
-                   z0 + gamma * t);
+                   z0 + gamma * t,
+                   1.0f );
     }
 };
 
