@@ -20,7 +20,7 @@ public:
     float w;
     Vector();
 #if SSE
-    Vector(  const __m128 & v  );
+    Vector( const __m128 & v );
 #endif
     Vector( const float & x_, const float & y_, const float & z_ );
     float dot( const Vector& v ) const;
@@ -38,12 +38,12 @@ public:
                              -y * sin( a ) + z * cos( a ) );
     }
     Vector rotate_y( const float & a ) const{
-            return Vector(   x * cos( a ) - z * sin( a ),
+            return Vector(  x * cos( a ) - z * sin( a ),
                             y,
                             x * sin( a ) + z * cos( a ) );
     }
     Vector rotate_z( const float & a ) const{
-            return Vector(   x * cos( a ) + y * sin( a ),
+            return Vector(  x * cos( a ) + y * sin( a ),
                             -x * sin( a ) + y * cos( a ),
                             z );
     }
@@ -118,24 +118,24 @@ public:
         ret.m[ 1 ][ 1 ] = cos( angle );
         return ret;
     }
-    Matrix operator*(  const Matrix & v  ) const
+    Matrix operator*( const Matrix & v ) const
     {
         Matrix ret;
-        for(  unsigned char i = 0; i < 4; i++  )
-            for(  unsigned char j = 0; j < 4; j++  )
+        for( unsigned char i = 0; i < 4; i++ )
+            for( unsigned char j = 0; j < 4; j++ )
             {
                 ret.m[ i ][ j ] = 0;
-                for(  unsigned char k = 0; k < 4; k++  )
-                    ret.m[ i ][ j ] = ret.m[ i ][ j ] + (  m[ i ][ k ] * v.m[ k ][ j ]  );
+                for( unsigned char k = 0; k < 4; k++ )
+                    ret.m[ i ][ j ] = ret.m[ i ][ j ] + ( m[ i ][ k ] * v.m[ k ][ j ] );
             }
         return ret;
     }
-    Matrix operator=(  const Matrix & v  )
+    Matrix operator=( const Matrix & v )
     {
-    	if(  this != &v  )
+    	if( this != &v )
     	{
-    		for(  unsigned char i = 0; i < 4; i++  )
-				for(  unsigned char j = 0; j < 4; j++  )
+    		for( unsigned char i = 0; i < 4; i++ )
+				for( unsigned char j = 0; j < 4; j++ )
 					m[i][j] = v.m[i][j];
     	}
     	return *this;
@@ -143,37 +143,37 @@ public:
     Vector mul( const Vector & v ) const
     {
         return Vector( m[ 0 ][ 0 ] * v.x + m[ 1 ][ 0 ] * v.y + m[ 2 ][ 0 ] * v.z + m[ 3 ][ 0 ],
-                      m[ 0 ][ 1 ] * v.x + m[ 1 ][ 1 ] * v.y + m[ 2 ][ 1 ] * v.z + m[ 3 ][ 1 ],
-                      m[ 0 ][ 2 ] * v.x + m[ 1 ][ 2 ] * v.y + m[ 2 ][ 2 ] * v.z + m[ 3 ][ 2 ] );
+                       m[ 0 ][ 1 ] * v.x + m[ 1 ][ 1 ] * v.y + m[ 2 ][ 1 ] * v.z + m[ 3 ][ 1 ],
+                       m[ 0 ][ 2 ] * v.x + m[ 1 ][ 2 ] * v.y + m[ 2 ][ 2 ] * v.z + m[ 3 ][ 2 ] );
     }
     float det() const
     {
-    			return   m[ 0 ][ 0 ] * (  m[ 1 ][ 1 ] * m[ 2 ][ 2 ] - m[ 1 ][ 2 ] * m[ 2 ][ 1 ]  ) -
-                         m[ 0 ][ 1 ] * (  m[ 1 ][ 0 ] * m[ 2 ][ 2 ] - m[ 1 ][ 2 ] * m[ 2 ][ 0 ]  ) +
-                         m[ 0 ][ 2 ] * (  m[ 1 ][ 0 ] * m[ 2 ][ 1 ] - m[ 1 ][ 1 ] * m[ 2 ][ 0 ]  );
+    			return   m[ 0 ][ 0 ] * ( m[ 1 ][ 1 ] * m[ 2 ][ 2 ] - m[ 1 ][ 2 ] * m[ 2 ][ 1 ] ) -
+                         m[ 0 ][ 1 ] * ( m[ 1 ][ 0 ] * m[ 2 ][ 2 ] - m[ 1 ][ 2 ] * m[ 2 ][ 0 ] ) +
+                         m[ 0 ][ 2 ] * ( m[ 1 ][ 0 ] * m[ 2 ][ 1 ] - m[ 1 ][ 1 ] * m[ 2 ][ 0 ] );
     }
     Matrix inverse() const
     {
         float DetInv = 1 / det();
         Matrix ret;
-          ret.m[ 0 ][ 0 ] =  DetInv * (  m[ 1 ][ 1 ] * m[ 2 ][ 2 ] - m[ 1 ][ 2 ] * m[ 2 ][ 1 ]  );
-          ret.m[ 0 ][ 1 ] = -DetInv * (  m[ 0 ][ 1 ] * m[ 2 ][ 2 ] - m[ 0 ][ 2 ] * m[ 2 ][ 1 ]  );
-          ret.m[ 0 ][ 2 ] =  DetInv * (  m[ 0 ][ 1 ] * m[ 1 ][ 2 ] - m[ 0 ][ 2 ] * m[ 1 ][ 1 ]  );
+          ret.m[ 0 ][ 0 ] =  DetInv * ( m[ 1 ][ 1 ] * m[ 2 ][ 2 ] - m[ 1 ][ 2 ] * m[ 2 ][ 1 ] );
+          ret.m[ 0 ][ 1 ] = -DetInv * ( m[ 0 ][ 1 ] * m[ 2 ][ 2 ] - m[ 0 ][ 2 ] * m[ 2 ][ 1 ] );
+          ret.m[ 0 ][ 2 ] =  DetInv * ( m[ 0 ][ 1 ] * m[ 1 ][ 2 ] - m[ 0 ][ 2 ] * m[ 1 ][ 1 ] );
           ret.m[ 0 ][ 3 ] = 0;
 
-          ret.m[ 1 ][ 0 ] = -DetInv * (  m[ 1 ][ 0 ] * m[ 2 ][ 2 ] - m[ 1 ][ 2 ] * m[ 2 ][ 0 ]  );
-          ret.m[ 1 ][ 1 ] =  DetInv * (  m[ 0 ][ 0 ] * m[ 2 ][ 2 ] - m[ 0 ][ 2 ] * m[ 2 ][ 0 ]  );
-          ret.m[ 1 ][ 2 ] = -DetInv * (  m[ 0 ][ 0 ] * m[ 1 ][ 2 ] - m[ 0 ][ 2 ] * m[ 1 ][ 0 ]  );
+          ret.m[ 1 ][ 0 ] = -DetInv * ( m[ 1 ][ 0 ] * m[ 2 ][ 2 ] - m[ 1 ][ 2 ] * m[ 2 ][ 0 ] );
+          ret.m[ 1 ][ 1 ] =  DetInv * ( m[ 0 ][ 0 ] * m[ 2 ][ 2 ] - m[ 0 ][ 2 ] * m[ 2 ][ 0 ] );
+          ret.m[ 1 ][ 2 ] = -DetInv * ( m[ 0 ][ 0 ] * m[ 1 ][ 2 ] - m[ 0 ][ 2 ] * m[ 1 ][ 0 ] );
           ret.m[ 1 ][ 3 ] = 0;
 
-          ret.m[ 2 ][ 0 ] =  DetInv * (  m[ 1 ][ 0 ] * m[ 2 ][ 1 ] - m[ 1 ][ 1 ] * m[ 2 ][ 0 ]  );
-          ret.m[ 2 ][ 1 ] = -DetInv * (  m[ 0 ][ 0 ] * m[ 2 ][ 1 ] - m[ 0 ][ 1 ] * m[ 2 ][ 0 ]  );
-          ret.m[ 2 ][ 2 ] =  DetInv * (  m[ 0 ][ 0 ] * m[ 1 ][ 1 ] - m[ 0 ][ 1 ] * m[ 1 ][ 0 ]  );
+          ret.m[ 2 ][ 0 ] =  DetInv * ( m[ 1 ][ 0 ] * m[ 2 ][ 1 ] - m[ 1 ][ 1 ] * m[ 2 ][ 0 ] );
+          ret.m[ 2 ][ 1 ] = -DetInv * ( m[ 0 ][ 0 ] * m[ 2 ][ 1 ] - m[ 0 ][ 1 ] * m[ 2 ][ 0 ] );
+          ret.m[ 2 ][ 2 ] =  DetInv * ( m[ 0 ][ 0 ] * m[ 1 ][ 1 ] - m[ 0 ][ 1 ] * m[ 1 ][ 0 ] );
           ret.m[ 2 ][ 3 ] = 0;
 
-          ret.m[ 3 ][ 0 ] = -(  m[ 3 ][ 0 ] * ret.m[ 0 ][ 0 ] + m[ 3 ][ 1 ] * ret.m[ 1 ][ 0 ] + m[ 3 ][ 2 ] * ret.m[ 2 ][ 0 ]  );
-          ret.m[ 3 ][ 1 ] = -(  m[ 3 ][ 0 ] * ret.m[ 0 ][ 1 ] + m[ 3 ][ 1 ] * ret.m[ 1 ][ 1 ] + m[ 3 ][ 2 ] * ret.m[ 2 ][ 1 ]  );
-          ret.m[ 3 ][ 2 ] = -(  m[ 3 ][ 0 ] * ret.m[ 0 ][ 2 ] + m[ 3 ][ 1 ] * ret.m[ 1 ][ 2 ] + m[ 3 ][ 2 ] * ret.m[ 2 ][ 2 ]  );
+          ret.m[ 3 ][ 0 ] = -( m[ 3 ][ 0 ] * ret.m[ 0 ][ 0 ] + m[ 3 ][ 1 ] * ret.m[ 1 ][ 0 ] + m[ 3 ][ 2 ] * ret.m[ 2 ][ 0 ] );
+          ret.m[ 3 ][ 1 ] = -( m[ 3 ][ 0 ] * ret.m[ 0 ][ 1 ] + m[ 3 ][ 1 ] * ret.m[ 1 ][ 1 ] + m[ 3 ][ 2 ] * ret.m[ 2 ][ 1 ] );
+          ret.m[ 3 ][ 2 ] = -( m[ 3 ][ 0 ] * ret.m[ 0 ][ 2 ] + m[ 3 ][ 1 ] * ret.m[ 1 ][ 2 ] + m[ 3 ][ 2 ] * ret.m[ 2 ][ 2 ] );
           ret.m[ 3 ][ 3 ] = 1;
           return ret;
     }
