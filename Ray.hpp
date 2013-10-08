@@ -19,15 +19,6 @@ public:
     HOST_DEVICE ~Ray()
     {
     }
-//    HOST_DEVICE Ray operator=( const Ray & r )
-//    {
-//    	if( this != &r )
-//    	{
-//    		vector = r.vector;
-//    		start_point = r.start_point;
-//    	}
-//    	return *this;
-//    }
     HOST_DEVICE Vector point( const float & t ) const
     {
         const float& x0 = start_point.x;

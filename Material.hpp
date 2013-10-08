@@ -4,8 +4,10 @@
 #include "Color.hpp"
 //#include "Texture.hpp"
 
-class Material{
+class Material
+{
 private:
+
 public:
     Color m_ambient;
     Color m_diffuse;

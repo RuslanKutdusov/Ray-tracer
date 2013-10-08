@@ -39,7 +39,7 @@ HOST_DEVICE void get_reflect_refract_rays( const Material & material, const Ray 
 			cos_i = -i.dot( n );
 			refract_coef = 1.0f / refract_coef;
 		}
-		float sin2_t = refract_coef*refract_coef * ( 1.0f - cos_i*cos_i );
+		float sin2_t = refract_coef * refract_coef * ( 1.0f - cos_i * cos_i );
 		if( sin2_t <= 1.0f )
 		{
 			float cos_t = sqrt( 1.0f - sin2_t );
@@ -61,9 +61,9 @@ HOST_DEVICE bool is_in_border( const float & v, const float & b1, const float & 
 {
 	t = ( v - b1 ) / ( b2 - b1 );
 	t = t > 1.0f ? 1.0f : t;
-	if ( ( v >= b1 && v <= b2 ) )// || ( v >= b2 && v <= b1 ) )
+	if( ( v >= b1 && v <= b2 ) )// || ( v >= b2 && v <= b1 ) )
 			return true;
-	if ( fabs( v - b1 ) < EPSILON || fabs( v - b2 ) < EPSILON )
+	if( fabs( v - b1 ) < EPSILON || fabs( v - b2 ) < EPSILON )
 		return true;
 	return false;
 }
@@ -77,7 +77,10 @@ struct ObjectPlane
 	Vector 		b1;
 	Vector 		b4;
 	Matrix 		inverse;
-	HOST_DEVICE ObjectPlane(){}
+	HOST_DEVICE ObjectPlane()
+	{
+
+	}
 	HOST_DEVICE ObjectPlane( const Matrix & m, float width, float height,
 							uint32_t material_, bool inverse_normal = false )
 	{
@@ -112,24 +115,19 @@ struct ObjectPlane
 		//( a,b,g ) - ray direction
 		float scalar = A * alfa + B * beta + C * gamma;
 		//прамая || плоскости
-		if( fabs( scalar ) < EPSILON ){
-			//printf( "<e\n" );
+		if( fabs( scalar ) < EPSILON )
 			return false;
-		}
 		float t = ( -D - A * x0 - B * y0 - C * z0 ) / scalar;
 		//точка должна быть по направлению луча
-		if( t < 0 || fabs( t ) < EPSILON ){
-			//printf( "invalid dir\n" );
+		if( t < 0 || fabs( t ) < EPSILON )
 			return false;
-		}
 		intersection.point = ray.point( t );
 
 		Vector intr = inverse.mul( intersection.point );
 		float tx, ty;
-		if ( !is_in_border( intr.x, b1.x, b4.x, tx ) ||
-			!is_in_border( intr.y, b4.y, b1.y, ty ) )
+		if ( !is_in_border( intr.x, b1.x, b4.x, tx ) || !is_in_border( intr.y, b4.y, b1.y, ty ) )
 			return false;
-//		intersection.pixel = g_materials[ material ].get_color( tx, ty );
+		intersection.pixel = g_materials[ material ].get_color( tx, ty );
 
 		get_reflect_refract_rays( g_materials[ material ], ray, intersection );
 		return true;
@@ -172,17 +170,19 @@ public:
         Vector v = ray.start_point - position;
         float B = v.dot( ray.vector );
         float C = v.dot( v ) - R * R;
-        float D = sqrtf( B*B - C );
-        if( isnan( D ) )
-            return false;
+        float D = B * B - C;
+        if( D < 0.0f )
+        	return false;
+        D = sqrtf( D );
         float t1 = ( -B - D );
         float t2 = ( -B + D );
-        if ( t1 < 0.0f && t2 < 0.0f )
+        if( t1 < 0.0f && t2 < 0.0f )
             return false;
         float min_t = fmin( t1, t2 );
         float max_t = fmax( t1, t2 );
         float t = ( min_t >= 0 ) ? min_t : max_t;
-        if ( fabs( t ) < EPSILON ){
+        if( fabs( t ) < EPSILON )
+        {
             if ( t < EPSILON )
                 t = max_t;
             if ( t < EPSILON )
@@ -208,6 +208,13 @@ struct PointLight
 		position = pos;
 	}
 	
+	PointLight operator=( const PointLight& pl )
+	{
+		color = pl.color;
+		position = pl.position;
+		return *this;
+	}
+
 	HOST_DEVICE float distance( const Vector & point ) const
 	{
 		return position.distance( point );
@@ -362,13 +369,13 @@ __global__ void calculate_light( Color* image, uint32_t width, uint32_t height, 
 	} }
 
 int main(){
-	Material m1( Color( 0.05f, 0.05f, 0.05f ), Color( 0.8f, 0.8f, 0.8f ), Color( 0.5f, 0.5f, 0.5f ), 5.0f, 8.0f, 0.0f, 0.0f );
+	Material m1( Color( 0.05f, 0.05f, 0.05f ), Color( 0.8f, 0.8f, 0.8f ), Color( 0.5f, 0.5f, 0.7f ), 5.0f, 20.0f, 0.0f, 0.0f );
 	uint32_t matNumber = 1;
 
 	const uint32_t lightsNumber = 2;
 	PointLight pointLights[ lightsNumber ];
-	pointLights[ 0 ] = PointLight( Color( 1.0f, 1.0f, 1.0f ), Vector( -2.0f, 4.0f, -1.0f ) );
-	pointLights[ 1 ] = PointLight( Color( 1.0f, 0.8f, 1.0f ), Vector( 0.0f, 1.0f, 3.0f ) );
+	pointLights[ 0 ] = PointLight( Color( 1.0f, 0.0f, 0.0f ), Vector( -2.0f, 4.0f, -1.0f ) );
+	pointLights[ 1 ] = PointLight( Color( 0.0f, 1.0f, 0.0f ), Vector( 0.0f, 1.0f, 3.0f ) );
 
 	Matrix m = Matrix::RotateX( PI / 2.0f );
 	m = m * Matrix::TranslateMatrix( 0.0f, -3.0f, 0.0f );
@@ -379,20 +386,20 @@ int main(){
 	uint32_t spheresNumber = 1;
 
 	CUDA_CHECK_RETURN( cudaMemcpyToSymbol( g_materials, &m1, sizeof( Material ), 0 ) );
-	CUDA_CHECK_RETURN( cudaMemcpyToSymbol( g_materialsNumber, &matNumber, sizeof( uint32_t ), 0 ) );
+	CUDA_CHECK_RETURN( cudaMemcpyToSymbol( g_materialsNumber, &matNumber, sizeof( uint32_t ) * matNumber, 0 ) );
 
-	CUDA_CHECK_RETURN( cudaMemcpyToSymbol( g_pointLights, &pointLights, sizeof( PointLight ), 0 ) );
+	CUDA_CHECK_RETURN( cudaMemcpyToSymbol( g_pointLights, &pointLights, sizeof( PointLight ) * lightsNumber, 0 ) );
 	CUDA_CHECK_RETURN( cudaMemcpyToSymbol( g_pointLightsNumber, &lightsNumber, sizeof( uint32_t ), 0 ) );
 
-	CUDA_CHECK_RETURN( cudaMemcpyToSymbol( g_objPlanes, &plane, sizeof( ObjectPlane ), 0 ) );
+	CUDA_CHECK_RETURN( cudaMemcpyToSymbol( g_objPlanes, &plane, sizeof( ObjectPlane ) * planesNumber, 0 ) );
 	CUDA_CHECK_RETURN( cudaMemcpyToSymbol( g_objPlanesNumber, &planesNumber, sizeof( uint32_t ), 0 ) );
 
-	CUDA_CHECK_RETURN( cudaMemcpyToSymbol( g_objSpheres, &sphere, sizeof( ObjectSphere ), 0 ) );
+	CUDA_CHECK_RETURN( cudaMemcpyToSymbol( g_objSpheres, &sphere, sizeof( ObjectSphere ) * spheresNumber, 0 ) );
 	CUDA_CHECK_RETURN( cudaMemcpyToSymbol( g_objSpheresNumber, &spheresNumber, sizeof( uint32_t ), 0 ) );
 
 	image_t image;
-	image.width = 512;
-	image.height = 512;
+	image.width = 1024;
+	image.height = 1024;
 	uint32_t image_size = image.width * image.height;
 
 	image.image = new Color[ image_size ];
