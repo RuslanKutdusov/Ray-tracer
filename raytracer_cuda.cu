@@ -11,25 +11,28 @@
 __constant__ Material 		g_materials[100];
 __constant__ uint32_t 		g_materialsNumber;
 
+
 struct Intersection
 {
     Vector  point;
     Vector  normal;
-    Ray     reflect_ray;
-    Ray     refract_ray;
+    Vector 	reflectRayVector;
+    Vector 	refractRayVector;
     float   reflect_amount;
-    Color   pixel;
+    float	tx;
+    float 	ty;
+    float 	padding;
 } __attribute__ ( ( aligned( 16 ) ) );
+
 
 HOST_DEVICE void get_reflect_refract_rays( const Material & material, const Ray & ray, Intersection & intersection )
 {
 	Vector i = ray.vector;
 	Vector n = intersection.normal;
-	intersection.reflect_ray.vector = i.reflect( n );
-	intersection.reflect_ray.vector.normalize();
-	intersection.reflect_ray.start_point = intersection.point;
+	intersection.reflectRayVector = i.reflect( n );
+	intersection.reflectRayVector.normalize();
 	intersection.reflect_amount = 1.0f;
-	if ( material.m_refract_amount > 0 )
+	if ( material.m_refract_amount > 0.0f )
 	{
 		float refract_coef = material.m_refract_coef;
 		float cos_i = -i.dot( n );
@@ -43,16 +46,15 @@ HOST_DEVICE void get_reflect_refract_rays( const Material & material, const Ray 
 		if( sin2_t <= 1.0f )
 		{
 			float cos_t = sqrt( 1.0f - sin2_t );
-			intersection.refract_ray.vector = i.scalar( refract_coef ) + n.scalar( refract_coef * cos_i - cos_t );
-			intersection.refract_ray.vector.normalize();
-			intersection.refract_ray.start_point = intersection.point;
+			intersection.refractRayVector = i.scalar( refract_coef ) + n.scalar( refract_coef * cos_i - cos_t );
+			intersection.refractRayVector.normalize();
 			float Rorto  = ( cos_i - refract_coef * cos_t ) / ( cos_i + refract_coef * cos_t );
 			float Rparal = ( refract_coef * cos_i - cos_t ) / ( refract_coef * cos_i + cos_t );
 			intersection.reflect_amount = ( Rorto * Rorto + Rparal * Rparal ) / 2.0f;
 		}
 		else
 		{
-			intersection.refract_ray = intersection.reflect_ray;
+			intersection.refractRayVector = intersection.reflectRayVector;
 		}
 	}
 }
@@ -101,16 +103,16 @@ struct ObjectPlane
 	HOST_DEVICE bool RayIntersect( const Ray& ray, Intersection & intersection )
 	{
 		intersection.normal = normal;
-		const float & A = abcd.x;
-		const float & B = abcd.y;
-		const float & C = abcd.z;
-		const float & D = abcd.w;
-		const float & x0 = ray.start_point.x;
-		const float & y0 = ray.start_point.y;
-		const float & z0 = ray.start_point.z;
-		const float & alfa =  ray.vector.x;
-		const float & beta = ray.vector.y;
-		const float & gamma = ray.vector.z;
+		const float& A = abcd.x;
+		const float& B = abcd.y;
+		const float& C = abcd.z;
+		const float& D = abcd.w;
+		const float& x0 = ray.start_point.x;
+		const float& y0 = ray.start_point.y;
+		const float& z0 = ray.start_point.z;
+		const float& alfa =  ray.vector.x;
+		const float& beta = ray.vector.y;
+		const float& gamma = ray.vector.z;
 		//( A,B,C ) -normal
 		//( a,b,g ) - ray direction
 		float scalar = A * alfa + B * beta + C * gamma;
@@ -124,10 +126,8 @@ struct ObjectPlane
 		intersection.point = ray.point( t );
 
 		Vector intr = inverse.mul( intersection.point );
-		float tx, ty;
-		if ( !is_in_border( intr.x, b1.x, b4.x, tx ) || !is_in_border( intr.y, b4.y, b1.y, ty ) )
+		if ( !is_in_border( intr.x, b1.x, b4.x, intersection.tx ) || !is_in_border( intr.y, b4.y, b1.y, intersection.ty ) )
 			return false;
-		intersection.pixel = g_materials[ material ].get_color( tx, ty );
 
 		get_reflect_refract_rays( g_materials[ material ], ray, intersection );
 		return true;
@@ -160,7 +160,6 @@ public:
         intersection.normal = intersection.point - position;
         intersection.normal.normalize();
         get_reflect_refract_rays( g_materials[ material ], ray, intersection );
-        intersection.pixel = Color( 1.0f, 1.0f, 1.0f );
         return true;
     }
 
@@ -248,21 +247,9 @@ __device__ const Material& GetMaterial( uint32_t objectIndex )
 	return g_materials[ nextIndex ];
 }
 
-__global__ void calculate_light( Color* image, uint32_t width, uint32_t height, Vector cameraPos, Viewport viewport, uint32_t objNumber )
+
+__device__ Color ray_trace( const Ray & ray, Intersection & intr, uint32_t objNumber )
 {
-	uint32_t pixel_index = blockIdx.x * blockDim.x + threadIdx.x;
-	uint32_t yi = pixel_index / width;
-	uint32_t xi = pixel_index - yi * width;
-	float delta_x = ( viewport.m_p2.x - viewport.m_p1.x ) / ( float )width;
-	//float delta_z = ( viewport.m_p2.z - viewport.m_p1.z ) / ( float )width;
-	float delta_y = ( viewport.m_p1.y - viewport.m_p3.y ) / ( float )height;
-	float x = delta_x * xi + viewport.m_p1.x;
-	float y = viewport.m_p1.y - delta_y * yi;
-	//float z = delta_z * xi + viewport.m_p1.z;
-
-	Ray ray( Vector( x, y, viewport.m_p1.z ), cameraPos );
-
-	Intersection intr;
 	uint32_t i_object = ~0u;
 	float distance2obj = INFINITY;
 	for( uint32_t i = 0; i < objNumber; i++ )
@@ -280,10 +267,7 @@ __global__ void calculate_light( Color* image, uint32_t width, uint32_t height, 
 		}
 	}
 	if( i_object == ~0u )
-	{
-		image[ pixel_index ] = Color( 0.0f, 0.0f, 0.0f );
-		return;
-	}
+		return Color( 0.0f, 0.0f, 0.0f );
 
 	const Material& material = GetMaterial( i_object );
 	Color ret = material.m_ambient;
@@ -315,15 +299,32 @@ __global__ void calculate_light( Color* image, uint32_t width, uint32_t height, 
 		if( angle_cos > 0 )
 		{
 			if( !material.m_diffuse.is_black() )
-				ret = ret + g_pointLights[ i ].color * ( angle_cos ) * material.m_diffuse;
+				ret = ret + g_pointLights[ i ].color * angle_cos * material.m_diffuse;
 			if( !material.m_specular.is_black() )
 				ret = ret + g_pointLights[ i ].color * powf( angle_cos, material.m_phong ) * material.m_specular;
 		}
 	}
 
 	ret.tone_mapping();
+	return ret;
+}
+
+__global__ void calculate_light( Color* image, uint32_t width, uint32_t height, Vector cameraPos, Viewport viewport, uint32_t objNumber )
+{
+	uint32_t pixel_index = blockIdx.x * blockDim.x + threadIdx.x;
+	uint32_t yi = pixel_index / width;
+	uint32_t xi = pixel_index - yi * width;
+	float delta_x = ( viewport.m_p2.x - viewport.m_p1.x ) / ( float )width;
+	float delta_z = ( viewport.m_p2.z - viewport.m_p1.z ) / ( float )width;
+	float delta_y = ( viewport.m_p1.y - viewport.m_p3.y ) / ( float )height;
+	float x = delta_x * xi + viewport.m_p1.x;
+	float y = viewport.m_p1.y - delta_y * yi;
+	float z = delta_z * xi + viewport.m_p1.z;
+
+	Ray ray( Vector( x, y, z ), cameraPos );
+	Intersection intersection;
 	//ret.gamma_correction();
-	image[ pixel_index ] = ret;
+	image[ pixel_index ] = ray_trace( ray, intersection, objNumber );
 
 //	float d = 0;
 
@@ -368,7 +369,8 @@ __global__ void calculate_light( Color* image, uint32_t width, uint32_t height, 
 		exit( 1 );															\
 	} }
 
-int main(){
+int main()
+{
 	Material m1( Color( 0.05f, 0.05f, 0.05f ), Color( 0.8f, 0.8f, 0.8f ), Color( 0.5f, 0.5f, 0.7f ), 5.0f, 20.0f, 0.0f, 0.0f );
 	uint32_t matNumber = 1;
 
