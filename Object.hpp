@@ -56,8 +56,8 @@ public:
                 cos_i = -i.dot( n );
                 refract_coef = 1.0f / refract_coef;
             }
-            float sin2_t = refract_coef*refract_coef * ( 1.0f - cos_i*cos_i )
-            		;
+            float sin2_t = refract_coef*refract_coef * ( 1.0f - cos_i*cos_i );
+
             if( sin2_t <= 1.0f  ){
                 float cos_t = sqrt( 1.0f - sin2_t );
                 intersection.refract_ray.vector = i.scalar( refract_coef ) + n.scalar( refract_coef * cos_i - cos_t );
@@ -282,8 +282,8 @@ public:
     Vector m_center;
     float m_radius;
 
-    ObjectLight( const Vector & center, const Color & color )
-        : m_color( color ), m_center( center ), m_radius( 0 )
+    ObjectLight( const Vector & center, const Color & color, float radius )
+        : m_color( color ), m_center( center ), m_radius( radius )
     {
 
     }

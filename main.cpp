@@ -3,6 +3,6 @@
 
 int main(int argc, char *argv[])
 {
-    RayTracer rt(512, 512);
+    RayTracer rt(1024, 1024);
     return 0;
 }
