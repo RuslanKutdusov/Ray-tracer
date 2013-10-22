@@ -195,22 +195,25 @@ struct PointLight
 {
 	Color		color;
 	Vector 		position;
+	float		radius;
 
 	HOST_DEVICE PointLight()
 	{
 
 	}
 
-	HOST_DEVICE PointLight( const Color & c, const Vector & pos )
+	HOST_DEVICE PointLight( const Color & c, const Vector & pos, float radius_ )
 	{
 		color = c;
 		position = pos;
+		radius = radius_;
 	}
 	
 	PointLight operator=( const PointLight& pl )
 	{
 		color = pl.color;
 		position = pl.position;
+		radius = pl.radius;
 		return *this;
 	}
 
@@ -295,13 +298,17 @@ __device__ Color ray_trace( const Ray & ray, Intersection & intr, uint32_t objNu
 		if( i_object_in_shadow )
 			continue;
 
+		float attenuation = g_pointLights[ i ].radius / distance2light;
+		if( attenuation > 1.0f )
+			attenuation = 1.0f;
+
 		const float& angle_cos = to_light.vector.dot( intr.normal );
 		if( angle_cos > 0 )
 		{
 			if( !material.m_diffuse.is_black() )
-				ret = ret + g_pointLights[ i ].color * angle_cos * material.m_diffuse;
+				ret = ret + g_pointLights[ i ].color * angle_cos * material.m_diffuse * attenuation;
 			if( !material.m_specular.is_black() )
-				ret = ret + g_pointLights[ i ].color * powf( angle_cos, material.m_phong ) * material.m_specular;
+				ret = ret + g_pointLights[ i ].color * powf( angle_cos, material.m_phong ) * material.m_specular * attenuation;
 		}
 	}
 
@@ -371,17 +378,17 @@ __global__ void calculate_light( Color* image, uint32_t width, uint32_t height, 
 
 int main()
 {
-	Material m1( Color( 0.05f, 0.05f, 0.05f ), Color( 0.8f, 0.8f, 0.8f ), Color( 0.5f, 0.5f, 0.7f ), 5.0f, 20.0f, 0.0f, 0.0f );
+	Material m1( Color( 0.01f, 0.01f, 0.01f ), Color( 0.8f, 0.8f, 0.8f ), Color( 0.5f, 0.5f, 0.7f ), 5.0f, 20.0f, 0.0f, 0.0f );
 	uint32_t matNumber = 1;
 
 	const uint32_t lightsNumber = 2;
 	PointLight pointLights[ lightsNumber ];
-	pointLights[ 0 ] = PointLight( Color( 1.0f, 0.0f, 0.0f ), Vector( -2.0f, 4.0f, -1.0f ) );
-	pointLights[ 1 ] = PointLight( Color( 0.0f, 1.0f, 0.0f ), Vector( 0.0f, 1.0f, 3.0f ) );
+	pointLights[ 0 ] = PointLight( Color( 1.0f, 0.0f, 0.0f ), Vector( -2.0f, 4.0f, -1.0f ), 3.0f );
+	pointLights[ 1 ] = PointLight( Color( 0.0f, 1.0f, 0.0f ), Vector( 4.0f, 2.0f, 0.0f ), 3.0f );
 
 	Matrix m = Matrix::RotateX( PI / 2.0f );
 	m = m * Matrix::TranslateMatrix( 0.0f, -3.0f, 0.0f );
-	ObjectPlane plane( m, 10.0f, 10.0f, 0, true );
+	ObjectPlane plane( m, 100.0f, 100.0f, 0, true );
 	uint32_t planesNumber = 1;
 
 	ObjectSphere sphere( Vector( 0.0f, 0.0f, 0.0f ), 1.5f, 0 );
