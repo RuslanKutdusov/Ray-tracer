@@ -148,9 +148,11 @@ public:
         if ( !is_in_border( intr.x, b1.x, b4.x, tx ) ||
             !is_in_border( intr.y, b4.y, b1.y, ty ) )
             return false;
+
         intersection.pixel = m_material.get_color( tx, ty );
-        //printf( "%f %f %f\n", intersection.pixel.r, intersection.pixel.g, intersection.pixel.b  );
-        get_reflect_refract_rays( ray, intersection );
+
+       	get_reflect_refract_rays( ray, intersection );
+
         return true;
     }
 };
@@ -240,7 +242,7 @@ public:
     {
         intersection.point = ray.point( t );
         if ( fabs( ( intersection.point - m_center ).length() - m_radius ) > EPSILON )
-                return false;
+        	return false;
         intersection.normal = intersection.point - m_center;
         intersection.normal.normalize();
         get_reflect_refract_rays( ray, intersection );

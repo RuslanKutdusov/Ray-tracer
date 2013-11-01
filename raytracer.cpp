@@ -44,9 +44,9 @@ void RayTracer::prepare_scene()
     objects.push_back( new ObjectSphere( Vector( 0, -2, -box_size / 2 + 4.5 ), 1.5, m7 ) );
 
     float x = 0.0f, y = 0.0f;
-    float light_intensity = 0.03f;
-    for( x = 0; x < 1; x += 0.2f )
-        for( y = 0; y < 1; y += 0.2f )
+    float light_intensity = 0.9f;
+    //for( x = 0; x < 1; x += 0.2f )
+    //    for( y = 0; y < 1; y += 0.2f )
         {
             lights.push_back( ObjectLight( Vector( x + 2,-4 + y, 2 ), Color( light_intensity ), 7.0f ) );
             lights.push_back( ObjectLight( Vector( x + 4,y + 4, 3 ), Color( light_intensity ), 5.0f ) );
@@ -142,18 +142,20 @@ Color RayTracer::ray_tracing( const Ray & ray, const int &depth, int & rays_coun
     Color specular;
     for( size_t i = 0; i < lights.size(); i++ )
     {
-        float distance2light = lights[i].distance( intr.point );
-        Vector toLightVec = intr.point - lights[i].m_center;
-        Ray to_light( lights[i].m_center, intr.point );
+        float distance2light = lights[ i ].distance( intr.point );
+        Vector fromLight = intr.point - lights[ i ].m_center;
+        Ray to_light( lights[ i ].m_center, intr.point );
 
         //проверям, в тени какого либо объекта или нет
         bool i_object_in_shadow = false;
         for( size_t j = 0; j < objects.size(); j++ )
         {
             Intersection intr2;
-            if ( objects[j]->RayIntersect( to_light, intr2 ) ){
+            if ( objects[ j ]->RayIntersect( to_light, intr2 ) )
+            {
                 float distance_ = intr2.point.distance( intr.point );
-                if ( distance_ < distance2light ){
+                if ( distance_ < distance2light )
+                {
                     i_object_in_shadow = true;
                     break;
                 }
@@ -162,15 +164,17 @@ Color RayTracer::ray_tracing( const Ray & ray, const int &depth, int & rays_coun
         if ( i_object_in_shadow )
             continue;
 
+        float attenuation = saturated( lights[ i ].m_radius * lights[ i ].m_radius / fromLight.dot( fromLight ) );
+
         float angle_cos = to_light.vector.dot( intr.normal );
-        float attenuation = saturated( lights[ i ].m_radius * lights[ i ].m_radius / toLightVec.dot( toLightVec ) );
-        if ( angle_cos > 0 )
-        {
-            if ( !objects[i_object]->m_material.m_diffuse.is_black() )
-                diffuse = diffuse + lights[i].m_color * ( angle_cos ) * attenuation;
-            if ( !objects[i_object]->m_material.m_specular.is_black() )
-                specular = specular + lights[i].m_color * pow( angle_cos, objects[i_object]->m_material.m_phong ) * attenuation;
-        }
+        if( angle_cos > 0 )
+            if( !objects[ i_object ]->m_material.m_diffuse.is_black() )
+                diffuse = diffuse + lights[ i ].m_color * ( angle_cos ) * attenuation;
+
+        angle_cos = to_light.vector.dot( intr.reflect_ray.vector );
+        if( angle_cos > 0 )
+            if( !objects[ i_object ]->m_material.m_specular.is_black() )
+                specular = specular + lights[ i ].m_color * pow( angle_cos, objects[ i_object ]->m_material.m_phong ) * attenuation;
     }
 
     float d = 0;
