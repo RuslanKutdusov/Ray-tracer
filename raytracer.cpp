@@ -112,14 +112,20 @@ Color RayTracer::ray_tracing( const Ray & ray, const int &depth, int & rays_coun
 {
     if ( depth == MAX_DEPTH )
         return Color( 0, 0, 0 );
+
     Color ret( 0, 0, 0 );
+
     Intersection intr;
-    int i_object = -1;
+    Ray reflectRay;
+    Ray refractRay;
+    float reflectAmount;
+
+    size_t i_object = ~0;
     float distance2obj = INFINITY;
     for( size_t i = 0; i < objects.size(); i++ )
     {
         Intersection in;
-        if ( objects[i]->RayIntersect( ray, in ) ){
+        if ( objects[i]->CheckIntersection( ray, in ) ){
             float dist = in.point.distance( ray.start_point );
             if ( dist < distance2obj ){
                 distance2obj = dist;
@@ -128,8 +134,13 @@ Color RayTracer::ray_tracing( const Ray & ray, const int &depth, int & rays_coun
             }
         }
     }
-    if ( i_object == -1 )
+    if ( i_object == ~0 )
         return ret;
+
+    reflectRay.start_point = intr.point;
+    refractRay.start_point = intr.point;
+
+    objects[ i_object ]->GetReflectRefractVectors( ray, intr, reflectRay.vector, refractRay.vector, reflectAmount );
 
     rays_count++;
 
@@ -151,7 +162,7 @@ Color RayTracer::ray_tracing( const Ray & ray, const int &depth, int & rays_coun
         for( size_t j = 0; j < objects.size(); j++ )
         {
             Intersection intr2;
-            if ( objects[ j ]->RayIntersect( to_light, intr2 ) )
+            if ( objects[ j ]->CheckIntersection( to_light, intr2 ) )
             {
                 float distance_ = intr2.point.distance( intr.point );
                 if ( distance_ < distance2light )
@@ -171,7 +182,7 @@ Color RayTracer::ray_tracing( const Ray & ray, const int &depth, int & rays_coun
             if( !objects[ i_object ]->m_material.m_diffuse.is_black() )
                 diffuse = diffuse + lights[ i ].m_color * ( angle_cos ) * attenuation;
 
-        angle_cos = to_light.vector.dot( intr.reflect_ray.vector );
+        angle_cos = to_light.vector.dot( reflectRay.vector );
         if( angle_cos > 0 )
             if( !objects[ i_object ]->m_material.m_specular.is_black() )
                 specular = specular + lights[ i ].m_color * pow( angle_cos, objects[ i_object ]->m_material.m_phong ) * attenuation;
@@ -179,21 +190,21 @@ Color RayTracer::ray_tracing( const Ray & ray, const int &depth, int & rays_coun
 
     float d = 0;
 
-    const float & R = intr.reflect_amount;
-    float T = 1.0 - R;
+    float T = 1.0 - reflectAmount;
 
-    Color reflect_ray_color = ray_tracing( intr.reflect_ray, depth_, rays_count, &d );
-    reflect_ray_color = reflect_ray_color * exp( -objects[i_object]->m_material.m_beta ) * R;
+    Color reflect_ray_color = ray_tracing( reflectRay, depth_, rays_count, &d );
+    reflect_ray_color = reflect_ray_color * exp( -objects[i_object]->m_material.m_beta ) * reflectAmount;
 
     Color refract_ray_color;
     if ( objects[i_object]->m_material.m_refract_amount > 0 && T > EPSILON )
-        refract_ray_color = ray_tracing( intr.refract_ray, depth_, rays_count, NULL ) * objects[i_object]->m_material.m_refract_amount * T;
+        refract_ray_color = ray_tracing( refractRay, depth_, rays_count, NULL ) * objects[ i_object ]->m_material.m_refract_amount * T;
 
     ret = objects[i_object]->m_material.m_ambient +
           objects[i_object]->m_material.m_diffuse * diffuse * intr.pixel +
           objects[i_object]->m_material.m_specular * specular +
             reflect_ray_color +
             refract_ray_color ;
+
     return ret;
 }
 

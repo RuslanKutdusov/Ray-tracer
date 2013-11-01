@@ -9,11 +9,7 @@
 struct Intersection
 {
     Vector  point;
-    int     at_object;
     Vector  normal;
-    Ray     reflect_ray;
-    Ray     refract_ray;
-    float   reflect_amount;
     Color   pixel;
 };
 
@@ -39,15 +35,15 @@ public:
 
     }
 
-    void get_reflect_refract_rays( const Ray & ray, Intersection & intersection )
+    virtual void GetReflectRefractVectors( const Ray & ray, const Intersection& intersection, Vector& reflect, Vector& refract, float& reflectAmount )
     {
         Vector i = ray.vector;
         Vector n = intersection.normal;
-        intersection.reflect_ray.vector = i.reflect( n );
-        intersection.reflect_ray.vector.normalize();
-        intersection.reflect_ray.start_point = intersection.point;
-        intersection.reflect_amount = 1.0f;
-        if ( m_material.m_refract_amount > 0 ){
+        reflect = i.reflect( n );
+        reflect.normalize();
+        reflectAmount = 1.0f;
+        if ( m_material.m_refract_amount > 0 )
+        {
             float refract_coef = m_material.m_refract_coef;
             float cos_i = -i.dot( n );
             if(  cos_i < 0.0f  )
@@ -56,20 +52,20 @@ public:
                 cos_i = -i.dot( n );
                 refract_coef = 1.0f / refract_coef;
             }
-            float sin2_t = refract_coef*refract_coef * ( 1.0f - cos_i*cos_i );
+            float sin2_t = refract_coef * refract_coef * ( 1.0f - cos_i * cos_i );
 
-            if( sin2_t <= 1.0f  ){
+            if( sin2_t <= 1.0f  )
+            {
                 float cos_t = sqrt( 1.0f - sin2_t );
-                intersection.refract_ray.vector = i.scalar( refract_coef ) + n.scalar( refract_coef * cos_i - cos_t );
-                intersection.refract_ray.vector.normalize();
-                intersection.refract_ray.start_point = intersection.point;
+                refract = i.scalar( refract_coef ) + n.scalar( refract_coef * cos_i - cos_t );
+                refract.normalize();
                 float Rorto  = ( cos_i - refract_coef * cos_t ) / ( cos_i + refract_coef * cos_t );
                 float Rparal = ( refract_coef * cos_i - cos_t ) / ( refract_coef * cos_i + cos_t );
-                intersection.reflect_amount = ( Rorto * Rorto + Rparal * Rparal ) / 2.0f;
+                reflectAmount = ( Rorto * Rorto + Rparal * Rparal ) / 2.0f;
             }
             else
             {
-                intersection.refract_ray = intersection.reflect_ray;
+                refract = reflect;
             }
         }
     }
@@ -84,7 +80,7 @@ public:
             return true;
         return false;
     }
-    virtual bool RayIntersect( const Ray & ray, Intersection & intersection ) = 0;
+    virtual bool CheckIntersection( const Ray & ray, Intersection & intersection ) = 0;
 };
 
 class ObjectPlane : public Object
@@ -114,7 +110,7 @@ public:
         normal.normalize();
         abcd = Vector4( normal.x, normal.y, normal.z, -normal.dot( c ) );
     }
-    virtual bool RayIntersect( const Ray &ray, Intersection & intersection )
+    virtual bool CheckIntersection( const Ray &ray, Intersection & intersection )
     {
         intersection.normal = normal;
         float & A = abcd.x;
@@ -127,20 +123,19 @@ public:
         const float & alfa =  ray.vector.x;
         const float & beta = ray.vector.y;
         const float & gamma = ray.vector.z;
+
         //( A,B,C ) -normal
         //( a,b,g ) - ray direction
         float scalar = A * alfa + B * beta + C * gamma;
         //прамая || плоскости
-        if ( fabs( scalar ) < EPSILON ){
-            //printf( "<e\n" );
+        if ( fabs( scalar ) < EPSILON )
             return false;
-        }
+
         float t = ( -D - A * x0 - B * y0 - C * z0 ) / scalar;
         //точка должна быть по направлению луча
-        if ( t < 0 || fabs( t ) < EPSILON ){
-            //printf( "invalid dir\n" );
+        if ( t < 0 || fabs( t ) < EPSILON )
             return false;
-        }
+
         intersection.point = ray.point( t );
 
         Vector intr = m_inverse.mul( intersection.point );
@@ -151,8 +146,6 @@ public:
 
         intersection.pixel = m_material.get_color( tx, ty );
 
-       	get_reflect_refract_rays( ray, intersection );
-
         return true;
     }
 };
@@ -160,7 +153,8 @@ public:
 class ObjectBox : public Object
 {
 private:
-    std::vector<ObjectPlane> planes;
+    std::vector<ObjectPlane> 	planes;
+    size_t 						indexOfIntersectPlane;
 
     void init_plane( const Vector & pos, const Vector & rotate, const float & size,
                     const Material & material, Matrix & m )
@@ -199,15 +193,16 @@ public:
         m = Matrix::RotateX( PI / 2.0f ) * m;
         init_plane( pos, rotate, size, material, m );;
     }
-    virtual bool RayIntersect( const Ray &ray, Intersection &intersection )
+    virtual bool CheckIntersection( const Ray &ray, Intersection &intersection )
     {
+    	indexOfIntersectPlane = 0;
         Intersection intr;
-        int i_plane = -1;
+        size_t i_plane = ~0;
         float distance2obj = INFINITY;
         for( size_t i = 0; i < planes.size(); i++ )
         {
             Intersection in;
-            if ( planes[i].RayIntersect( ray, in ) )
+            if ( planes[i].CheckIntersection( ray, in ) )
             {
                 float dist = in.point.distance( ray.start_point );
                 if ( dist < distance2obj ){
@@ -217,10 +212,17 @@ public:
                 }
             }
         }
-        if ( i_plane == -1 )
+        if ( i_plane == ~0 )
             return false;
+
         intersection = intr;
+        indexOfIntersectPlane = i_plane;
+
         return true;
+    }
+    void GetReflectRefractVectors( const Ray & ray, const Intersection& intersection, Vector& reflect, Vector& refract, float& reflectAmount )
+    {
+    	planes[ indexOfIntersectPlane ].GetReflectRefractVectors( ray, intersection, reflect, refract, reflectAmount );
     }
 };
 
@@ -245,17 +247,16 @@ public:
         	return false;
         intersection.normal = intersection.point - m_center;
         intersection.normal.normalize();
-        get_reflect_refract_rays( ray, intersection );
         intersection.pixel = Color( 1.0f, 1.0f, 1.0f );
         return true;
     }
-    virtual bool RayIntersect( const Ray &ray, Intersection & intersection )
+    virtual bool CheckIntersection( const Ray &ray, Intersection & intersection )
     {
         float & R = m_radius;
         Vector v = ray.start_point - m_center;
         float B = v.dot( ray.vector );
         float C = v.dot( v ) - R * R;
-        float D = sqrt( B*B - C );
+        float D = sqrt( B * B - C );
         if ( isnan( D ) )
             return false;
         float t1 = ( -B - D );
@@ -265,7 +266,8 @@ public:
         float min_t = fmin( t1, t2 );
         float max_t = fmax( t1, t2 );
         float t = ( min_t >= 0 ) ? min_t : max_t;
-        if ( fabs( t ) < EPSILON ){
+        if ( fabs( t ) < EPSILON )
+        {
             if ( t < EPSILON )
                 t = max_t;
             if ( t < EPSILON )
