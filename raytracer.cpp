@@ -1,12 +1,14 @@
-#include "raytracer.h"
 #include <stdio.h>
 #include <math.h>
 #include <time.h>
 #include <unistd.h>
 
+#include "raytracer.h"
+#include "Texture.hpp"
+
 void RayTracer::prepare_scene()
 {
-    Material m1( Color( 0.0, 0.0, 0.0 ), Color( 1.0, 1.0, 1.0 ), Color( 0.5, 0.5, 0.5 ), 5, 15, 0, 0, "wood_006.png" );
+    Material m1( Color( 0.0, 0.0, 0.0 ), Color( 1.0, 1.0, 1.0 ), Color( 0.5, 0.5, 0.5 ), 5, 15, 0, 0, "wall.png" );
     Material m2( Color( 0.0, 0.1, 0.0 ), Color( 0.1, 0.4, 0.1 ), Color( 0.5, 0.5, 0.5 ), 5, 8, 0, 0 );
     Material m3( Color( 0.0, 0.0, 0.1 ), Color( 0.1, 0.1, 0.4 ), Color( 0.5, 0.5, 0.5 ), 5, 8, 0, 0 );
     Material m4( Color( 0.1, 0.1, 0.0 ), Color( 0.4, 0.4, 0.1 ), Color( 0.5, 0.5, 0.5 ), 5, 8, 0, 0 );
@@ -14,7 +16,7 @@ void RayTracer::prepare_scene()
     Material m6( Color(), Color(), Color(), 0.01, 2, 0, 0 );
     Material m7( Color(), Color(), Color( 0.5, 0.5, 0.5 ), 0, 10, 1, 0.5 );
     Material m8( Color(), Color( 0.2, 0.7, 0.5 ), Color( 0.5, 0.5, 0.5 ), 0.5, 10, 0, 0 );
-    Material m9( Color(), Color(), Color( 0.5, 0.5, 0.5 ), 10000, 10, 1, 0.6 );
+    Material m9( Color(), Color(), Color( 0.5, 0.5, 0.5 ), 0, 10, 1, 0.6 );
 
     float box_size = 12;
 
@@ -37,25 +39,28 @@ void RayTracer::prepare_scene()
     m = Matrix::RotateX( -PI / 2 ) * m;
     objects.push_back( new ObjectPlane( m, box_size, box_size, m1 ) );
 
-    objects.push_back( new ObjectBox( Vector( 0, -2, -box_size / 2 + 1.5 ), Vector( 0, 0, -0.5 ), 3, m8 ) );
+    objects.push_back( new ObjectBox( Vector( 0.0f, -2.0f, -box_size / 2.0f + 1.5f ), Vector( 0.0f, 0.0f, -0.5f ), 3, m8 ) );
+    objects.push_back( new ObjectBox( Vector( 1.0f, 2.0f, -box_size / 2.0f + 1.5f ), Vector( 0.0f, 0.0f, 0.9f ), 3, m8 ) );
 
-    objects.push_back( new ObjectSphere( Vector( 1.5, 1.5, -box_size / 2 + 2 ), 2, m6 ) );
-    objects.push_back( new ObjectSphere( Vector( 1.5, 2, 2 ), 2, m9 ) );
-    objects.push_back( new ObjectSphere( Vector( 0, -2, -box_size / 2 + 4.5 ), 1.5, m7 ) );
+    //objects.push_back( new ObjectSphere( Vector( 1.5, 1.5, -box_size / 2 + 2 ), 2, m6 ) );
+    objects.push_back( new ObjectSphere( Vector( 5, -2, -4 ), 2, m9 ) );
+    //objects.push_back( new ObjectSphere( Vector( 0, -2, -box_size / 2 + 4.5 ), 1.5, m7 ) );
 
     float x = 0.0f, y = 0.0f;
-    float light_intensity = 0.9f;
+    float light_intensity = 0.2f;
     //for( x = 0; x < 1; x += 0.2f )
     //    for( y = 0; y < 1; y += 0.2f )
         {
-            lights.push_back( ObjectLight( Vector( x + 2,-4 + y, 2 ), Color( light_intensity ), 7.0f ) );
-            lights.push_back( ObjectLight( Vector( x + 4,y + 4, 3 ), Color( light_intensity ), 5.0f ) );
+            lights.push_back( ObjectLight( Vector( x + 2.0f, -4.0f + y, 2.0f ), Color( light_intensity ), 15.0f ) );
+            lights.push_back( ObjectLight( Vector( x + 4.0f, y + 4.0f, 3.0f ), Color( light_intensity ), 15.0f ) );
         }
 }
 
 RayTracer::RayTracer( size_t width, size_t height )
 	: m_tasks_count( 0 )
 {
+	InitTextureSystem( 2.2f );
+
 	prepare_scene();
 
 	m_buf_size = width * height;
@@ -97,7 +102,7 @@ RayTracer::RayTracer( size_t width, size_t height )
 	double renderTime = endTime - startTime;
 	printf( "Render time: %g\n", renderTime );
 
-	save_png( "out.png", m_image );
+	save_png( "out.png", m_image, 2.2f );
 }
 
 RayTracer::~RayTracer()
@@ -175,12 +180,14 @@ Color RayTracer::ray_tracing( const Ray & ray, const int &depth, int & rays_coun
         if ( i_object_in_shadow )
             continue;
 
-        float attenuation = saturated( lights[ i ].m_radius * lights[ i ].m_radius / fromLight.dot( fromLight ) );
+        float attenuation = 1.0f - saturated( fromLight.dot( fromLight ) / lights[ i ].m_radius / lights[ i ].m_radius );
+        if( attenuation < EPSILON )
+        	continue;
 
         float angle_cos = to_light.vector.dot( intr.normal );
         if( angle_cos > 0 )
             if( !objects[ i_object ]->m_material.m_diffuse.is_black() )
-                diffuse = diffuse + lights[ i ].m_color * ( angle_cos ) * attenuation;
+                diffuse = diffuse + lights[ i ].m_color * angle_cos * attenuation;
 
         angle_cos = to_light.vector.dot( reflectRay.vector );
         if( angle_cos > 0 )
@@ -197,7 +204,7 @@ Color RayTracer::ray_tracing( const Ray & ray, const int &depth, int & rays_coun
 
     Color refract_ray_color;
     if ( objects[i_object]->m_material.m_refract_amount > 0 && T > EPSILON )
-        refract_ray_color = ray_tracing( refractRay, depth_, rays_count, NULL ) * objects[ i_object ]->m_material.m_refract_amount * T;
+        refract_ray_color = ray_tracing( refractRay, depth_, rays_count, NULL ) * T;
 
     ret = objects[i_object]->m_material.m_ambient +
           objects[i_object]->m_material.m_diffuse * diffuse * intr.pixel +
@@ -264,11 +271,11 @@ void RayTracer::thread( uint8_t thread_index )
 
 		const uint32_t & j = task.pixel_index;
 		m_image.image[ j ] = m_image.image[ j ] + ray_tracing( first_ray, 0, rays_count, nullptr );
-		if ( j == m_aaSamples - 1 )
+		//if ( j == m_aaSamples - 1 )
 		{
-			m_image.image[j].tone_mapping();
-			// gamma correction
-			m_image.image[j] = ( m_image.image[j] / m_aaSamples ) ^ ( 1.0f / 2.2f );
+			m_image.image[ j ].tone_mapping();
+
+			m_image.image[ j ] = m_image.image[ j ] / m_aaSamples;
 		}
 	}
 	printf( "Thread%u done, rays calculated=%d\n", thread_index, rays_count );

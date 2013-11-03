@@ -12,7 +12,7 @@ void PNGAPI error_function( png_structp png, png_const_charp dummy )
 }
 
 
-int read_png( const std::string& file_name, image_t& image )
+int read_png( const std::string& file_name, image_t& image, float gamma )
 {
 	png_structp png;
 	png_infop info;
@@ -97,21 +97,20 @@ int read_png( const std::string& file_name, image_t& image )
 	for( size_t y = 0; y < height; y++ )
 		for( size_t x = 0; x < width; x++ )
 		{
-		size_t i = y * width + x;
-		if ( has_alpha )
-		{
-			image.image[i].r = rgb[stride * y + x * 4 + 1] / 255.0f;
-			image.image[i].g = rgb[stride * y + x * 4 + 2] / 255.0f;
-			image.image[i].b = rgb[stride * y + x * 4 + 3] / 255.0f;
+			size_t i = y * width + x;
+			if ( has_alpha )
+			{
+				image.image[i].r = pow( rgb[stride * y + x * 4 + 1] / 255.0f, gamma  );
+				image.image[i].g = pow( rgb[stride * y + x * 4 + 2] / 255.0f, gamma  );
+				image.image[i].b = pow( rgb[stride * y + x * 4 + 3] / 255.0f, gamma  );
+			}
+			else
+			{
+				image.image[i].r = pow( rgb[stride * y + x * 3] / 255.0f, gamma  );
+				image.image[i].g = pow( rgb[stride * y + x * 3 + 1] / 255.0f, gamma  );
+				image.image[i].b = pow( rgb[stride * y + x * 3 + 2] / 255.0f, gamma  );
+			}
 		}
-		else
-		{
-			float gamma = 1.0f;
-			image.image[i].r = pow( rgb[stride * y + x * 3] / 255.0f, gamma  );
-			image.image[i].g = pow( rgb[stride * y + x * 3 + 1] / 255.0f, gamma  );
-			image.image[i].b = pow( rgb[stride * y + x * 3 + 2] / 255.0f, gamma  );
-		}
-	}
 	free( rgb );
 
 	End:
@@ -119,18 +118,19 @@ int read_png( const std::string& file_name, image_t& image )
 		return ok;
 }
 
- int save_png( const std::string & file_name, const image_t & image )
+ int save_png( const std::string & file_name, const image_t & image, float gamma )
  {
 	 	int i =0;
  		uint8_t* rgb = new uint8_t[ image.height * image.width * 3 ];
+ 		float deGamma = 1.0f / gamma;
  		for( size_t y = 0; y < image.height; y++ )
  			for( size_t x = 0; x < image.width; x++ )
  			{
  				size_t j = y * image.width + x;
- 				image.image[j].saturate(  );
- 				rgb[i++] = image.image[j].r * 255.0f;
- 				rgb[i++] = image.image[j].g * 255.0f;
- 				rgb[i++] = image.image[j].b * 255.0f;
+ 				image.image[ j ].saturate();
+ 				rgb[i++] = pow( image.image[j].r, deGamma ) * 255.0f;
+ 				rgb[i++] = pow( image.image[j].g, deGamma ) * 255.0f;
+ 				rgb[i++] = pow( image.image[j].b, deGamma ) * 255.0f;
  			}
 
  		png_structp png;
@@ -177,3 +177,38 @@ int read_png( const std::string& file_name, image_t& image )
  		fclose( fp );
  		return 0;
  }
+
+float g_gamma = 2.2f;
+
+void InitTextureSystem( float gamma )
+{
+	g_gamma = gamma;
+}
+
+Texture::Texture()
+{
+
+}
+
+Texture::Texture( const std::string& filename )
+{
+    read_png( filename, m_image, g_gamma );
+}
+
+Texture::~Texture()
+{
+
+}
+
+Color Texture::pixel( const float& x, const float& y )
+{
+    if( !m_image.image )
+        return Color( 1.0f, 1.0f, 1.0f );
+
+    size_t xx = x * m_image.width;
+    size_t yy = y * m_image.height;
+    xx = xx == m_image.width ? m_image.width - 1 : xx;
+    yy = yy == m_image.height ? m_image.height - 1 : yy;
+    return m_image.image[ xx + yy * m_image.width ];
+}
+

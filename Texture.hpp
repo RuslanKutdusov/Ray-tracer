@@ -24,40 +24,23 @@ struct image_t
     }
 };
 
-int read_png( const std::string & file_name, image_t & image );
-int save_png( const std::string & file_name, const image_t & image );
+int read_png( const std::string & file_name, image_t & image, float gamma );
+int save_png( const std::string & file_name, const image_t & image, float gamma );
 uint8_t* ALPHA( const uint32_t & argb );
 uint8_t* RED( const uint32_t & argb );
 uint8_t* GREEN( const uint32_t & argb );
 uint8_t* BLUE( const uint32_t & argb );
+void InitTextureSystem( float gamma );
 
 class Texture
 {
 private:
-    image_t image;
+    image_t m_image;
 public:
-    Texture()
-    {
-
-    }
-    Texture( const std::string& filename )
-    {
-        read_png( filename, image );
-    }
-    virtual ~Texture()
-    {
-
-    }
-    Color pixel( const float& x, const float& y )
-    {
-        if( !image.image )
-            return Color(1, 1, 1);
-        size_t xx = x * image.width;
-        size_t yy = y * image.height;
-        xx = xx == image.width ? image.width - 1 : xx;
-        yy = yy == image.height ? image.height - 1 : yy;
-        return image.image[xx + yy * image.width];
-    }
+    Texture();
+    Texture( const std::string& filename );
+    ~Texture();
+    Color pixel( const float& x, const float& y );
 };
 
 #endif // TEXTURE_HPP
