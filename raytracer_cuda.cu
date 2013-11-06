@@ -16,49 +16,50 @@ struct Intersection
 {
     Vector  point;
     Vector  normal;
-    Vector 	reflectRayVector;
-    Vector 	refractRayVector;
-    float   reflect_amount;
     float	tx;
     float 	ty;
-    float 	padding;
+    float 	padding[ 2 ];
 } __attribute__ ( ( aligned( 16 ) ) );
 
 
-HOST_DEVICE void get_reflect_refract_rays( const Material & material, const Ray & ray, Intersection & intersection )
+//
+HOST_DEVICE void GetReflectRefractVectors( const Material& material, const Ray & ray, const Intersection& intersection, Vector& reflect, Vector& refract, float& reflectAmount )
 {
-	Vector i = ray.vector;
-	Vector n = intersection.normal;
-	intersection.reflectRayVector = i.reflect( n );
-	intersection.reflectRayVector.normalize();
-	intersection.reflect_amount = 1.0f;
-	if ( material.m_refract_amount > 0.0f )
-	{
-		float refract_coef = material.m_refract_coef;
-		float cos_i = -i.dot( n );
-		if( cos_i < 0.0f )
-		{
-			n = n.scalar( -1 );
-			cos_i = -i.dot( n );
-			refract_coef = 1.0f / refract_coef;
-		}
-		float sin2_t = refract_coef * refract_coef * ( 1.0f - cos_i * cos_i );
-		if( sin2_t <= 1.0f )
-		{
-			float cos_t = sqrt( 1.0f - sin2_t );
-			intersection.refractRayVector = i.scalar( refract_coef ) + n.scalar( refract_coef * cos_i - cos_t );
-			intersection.refractRayVector.normalize();
-			float Rorto  = ( cos_i - refract_coef * cos_t ) / ( cos_i + refract_coef * cos_t );
-			float Rparal = ( refract_coef * cos_i - cos_t ) / ( refract_coef * cos_i + cos_t );
-			intersection.reflect_amount = ( Rorto * Rorto + Rparal * Rparal ) / 2.0f;
-		}
-		else
-		{
-			intersection.refractRayVector = intersection.reflectRayVector;
-		}
-	}
+    Vector i = ray.vector;
+    Vector n = intersection.normal;
+    reflect = i.reflect( n );
+    reflect.normalize();
+    reflectAmount = 1.0f;
+    if ( material.m_refract_amount > 0 )
+    {
+        float refract_coef = material.m_refract_coef;
+        float cos_i = -i.dot( n );
+        if( cos_i < 0.0f )
+        {
+            n = n.scalar( -1 );
+            cos_i = -i.dot( n );
+            refract_coef = 1.0f / refract_coef;
+        }
+        float sin2_t = refract_coef * refract_coef * ( 1.0f - cos_i * cos_i );
+
+        if( sin2_t <= 1.0f  )
+        {
+            float cos_t = sqrt( 1.0f - sin2_t );
+            refract = i.scalar( refract_coef ) + n.scalar( refract_coef * cos_i - cos_t );
+            refract.normalize();
+            float Rorto  = ( cos_i - refract_coef * cos_t ) / ( cos_i + refract_coef * cos_t );
+            float Rparal = ( refract_coef * cos_i - cos_t ) / ( refract_coef * cos_i + cos_t );
+            reflectAmount = ( Rorto * Rorto + Rparal * Rparal ) / 2.0f;
+        }
+        else
+        {
+            refract = reflect;
+        }
+    }
 }
 
+
+//
 HOST_DEVICE bool is_in_border( const float & v, const float & b1, const float & b2, float & t )
 {
 	t = ( v - b1 ) / ( b2 - b1 );
@@ -71,6 +72,7 @@ HOST_DEVICE bool is_in_border( const float & v, const float & b1, const float & 
 }
 
 
+//
 struct ObjectPlane
 {
 	uint32_t 	material;
@@ -100,7 +102,7 @@ struct ObjectPlane
 		abcd = Vector( normal.x, normal.y, normal.z, -normal.dot( c ) );
 		material = material_;
 	}
-	HOST_DEVICE bool RayIntersect( const Ray& ray, Intersection & intersection )
+	HOST_DEVICE bool CheckIntersection( const Ray& ray, Intersection & intersection )
 	{
 		intersection.normal = normal;
 		const float& A = abcd.x;
@@ -129,7 +131,6 @@ struct ObjectPlane
 		if ( !is_in_border( intr.x, b1.x, b4.x, intersection.tx ) || !is_in_border( intr.y, b4.y, b1.y, intersection.ty ) )
 			return false;
 
-		get_reflect_refract_rays( g_materials[ material ], ray, intersection );
 		return true;
 	}
 };
@@ -157,13 +158,16 @@ public:
         intersection.point = ray.point( t );
         if( fabs( ( intersection.point - position ).length() - radius ) > EPSILON )
                return false;
+
         intersection.normal = intersection.point - position;
         intersection.normal.normalize();
-        get_reflect_refract_rays( g_materials[ material ], ray, intersection );
+        intersection.tx = 0.0f;
+        intersection.ty = 0.0f;
+
         return true;
     }
 
-    HOST_DEVICE bool RayIntersect( const Ray &ray, Intersection & intersection ) const
+    HOST_DEVICE bool CheckIntersection( const Ray &ray, Intersection & intersection ) const
     {
         const float & R = radius;
         Vector v = ray.start_point - position;
@@ -230,16 +234,20 @@ __constant__ uint32_t 		g_objPlanesNumber;
 __constant__ ObjectSphere 	g_objSpheres[100];
 __constant__ uint32_t 		g_objSpheresNumber;
 
-__device__ bool RayIntersect( uint32_t objectIndex, const Ray & ray, Intersection & intr )
+
+//
+__device__ bool CheckIntersection( uint32_t objectIndex, const Ray & ray, Intersection & intr )
 {
 	if( objectIndex < g_objPlanesNumber )
-		return g_objPlanes[ objectIndex ].RayIntersect( ray, intr );
+		return g_objPlanes[ objectIndex ].CheckIntersection( ray, intr );
 	const uint32_t& nextIndex = objectIndex - g_objPlanesNumber;
 	if( nextIndex < g_objSpheresNumber )
-		return g_objSpheres[ nextIndex ].RayIntersect( ray, intr );
+		return g_objSpheres[ nextIndex ].CheckIntersection( ray, intr );
 	return false;
 }
 
+
+//
 __device__ const Material& GetMaterial( uint32_t objectIndex )
 {
 	if( objectIndex < g_objPlanesNumber )
@@ -251,14 +259,16 @@ __device__ const Material& GetMaterial( uint32_t objectIndex )
 }
 
 
+//
 __device__ Color ray_trace( const Ray & ray, Intersection & intr, uint32_t objNumber )
 {
 	uint32_t i_object = ~0u;
 	float distance2obj = INFINITY;
+
 	for( uint32_t i = 0; i < objNumber; i++ )
 	{
 		Intersection in;
-		if( RayIntersect( i, ray, in ) )
+		if( CheckIntersection( i, ray, in ) )
 		{
 			const float& dist = in.point.distance( ray.start_point );
 			if( dist < distance2obj )
@@ -272,12 +282,21 @@ __device__ Color ray_trace( const Ray & ray, Intersection & intr, uint32_t objNu
 	if( i_object == ~0u )
 		return Color( 0.0f, 0.0f, 0.0f );
 
+	Ray reflectRay;
+	Ray refractRay;
+	float reflectAmount;
+
 	const Material& material = GetMaterial( i_object );
 	Color ret = material.m_ambient;
 
+	reflectRay.start_point = intr.point;
+	refractRay.start_point = intr.point;
+	GetReflectRefractVectors( material, ray, intr, reflectRay.vector, refractRay.vector, reflectAmount );
+
 	for( uint32_t i = 0; i < g_pointLightsNumber; i++ )
 	{
-		const float& distance2light = g_pointLights[ i ].distance( intr.point );
+		const float distance2light = g_pointLights[ i ].distance( intr.point );
+		Vector fromLight = intr.point - g_pointLights[ i ].position;
 		Ray to_light( g_pointLights[ i ].position, intr.point );
 
 		//проверям, в тени какого либо объекта или нет
@@ -285,7 +304,7 @@ __device__ Color ray_trace( const Ray & ray, Intersection & intr, uint32_t objNu
 		for( uint32_t j = 0; j < objNumber; j++ )
 		{
 			Intersection intr2;
-			if( RayIntersect( j, to_light, intr2 ) )
+			if( CheckIntersection( j, to_light, intr2 ) )
 			{
 				const float& distance_ = intr2.point.distance( intr.point );
 				if( distance_ < distance2light )
@@ -298,21 +317,22 @@ __device__ Color ray_trace( const Ray & ray, Intersection & intr, uint32_t objNu
 		if( i_object_in_shadow )
 			continue;
 
-		float attenuation = g_pointLights[ i ].radius / distance2light;
+		float attenuation = distance2light / g_pointLights[ i ].radius;
 		if( attenuation > 1.0f )
-			attenuation = 1.0f;
+			continue;
+		attenuation = 1.0f - attenuation;
 
-		const float& angle_cos = to_light.vector.dot( intr.normal );
+		float angle_cos = to_light.vector.dot( intr.normal );
 		if( angle_cos > 0 )
-		{
 			if( !material.m_diffuse.is_black() )
 				ret = ret + g_pointLights[ i ].color * angle_cos * material.m_diffuse * attenuation;
+
+		angle_cos = to_light.vector.dot( reflectRay.vector );
+		if( angle_cos > 0 )
 			if( !material.m_specular.is_black() )
-				ret = ret + g_pointLights[ i ].color * powf( angle_cos, material.m_phong ) * material.m_specular * attenuation;
-		}
+				ret = ret + g_pointLights[ i ].color * pow( angle_cos, material.m_phong ) * attenuation;
 	}
 
-	ret.tone_mapping();
 	return ret;
 }
 
@@ -330,8 +350,79 @@ __global__ void calculate_light( Color* image, uint32_t width, uint32_t height, 
 
 	Ray ray( Vector( x, y, z ), cameraPos );
 	Intersection intersection;
-	//ret.gamma_correction();
-	image[ pixel_index ] = ray_trace( ray, intersection, objNumber );
+
+	uint32_t i_object = ~0u;
+	float distance2obj = INFINITY;
+
+	for( uint32_t i = 0; i < objNumber; i++ )
+	{
+		Intersection in;
+		if( CheckIntersection( i, ray, in ) )
+		{
+			const float& dist = in.point.distance( ray.start_point );
+			if( dist < distance2obj )
+			{
+				distance2obj = dist;
+				intersection = in;
+				i_object = i;
+			}
+		}
+	}
+	if( i_object == ~0u )
+		return Color( 0.0f, 0.0f, 0.0f );
+
+	Ray reflectRay;
+	Ray refractRay;
+	float reflectAmount;
+
+	const Material& material = GetMaterial( i_object );
+	Color ret = material.m_ambient;
+
+	reflectRay.start_point = intersection.point;
+	refractRay.start_point = intersection.point;
+	GetReflectRefractVectors( material, ray, intersection, reflectRay.vector, refractRay.vector, reflectAmount );
+
+	for( uint32_t i = 0; i < g_pointLightsNumber; i++ )
+	{
+		const float distance2light = g_pointLights[ i ].distance( intersection.point );
+		Vector fromLight = intersection.point - g_pointLights[ i ].position;
+		Ray to_light( g_pointLights[ i ].position, intersection.point );
+
+		//проверям, в тени какого либо объекта или нет
+		bool i_object_in_shadow = false;
+		for( uint32_t j = 0; j < objNumber; j++ )
+		{
+			Intersection intr2;
+			if( CheckIntersection( j, to_light, intr2 ) )
+			{
+				const float& distance_ = intr2.point.distance( intersection.point );
+				if( distance_ < distance2light )
+				{
+					i_object_in_shadow = true;
+					break;
+				}
+			}
+		}
+		if( i_object_in_shadow )
+			continue;
+
+		float attenuation = distance2light / g_pointLights[ i ].radius;
+		if( attenuation > 1.0f )
+			continue;
+		attenuation = 1.0f - attenuation;
+
+		float angle_cos = to_light.vector.dot( intersection.normal );
+		if( angle_cos > 0 )
+			if( !material.m_diffuse.is_black() )
+				ret = ret + g_pointLights[ i ].color * angle_cos * material.m_diffuse * attenuation;
+
+		angle_cos = to_light.vector.dot( reflectRay.vector );
+		if( angle_cos > 0 )
+			if( !material.m_specular.is_black() )
+				ret = ret + g_pointLights[ i ].color * pow( angle_cos, material.m_phong ) * attenuation;
+	}
+
+	image[ pixel_index ] = ret;
 
 //	float d = 0;
 
@@ -383,8 +474,8 @@ int main()
 
 	const uint32_t lightsNumber = 2;
 	PointLight pointLights[ lightsNumber ];
-	pointLights[ 0 ] = PointLight( Color( 1.0f, 0.0f, 0.0f ), Vector( -2.0f, 4.0f, -1.0f ), 3.0f );
-	pointLights[ 1 ] = PointLight( Color( 0.0f, 1.0f, 0.0f ), Vector( 4.0f, 2.0f, 0.0f ), 3.0f );
+	pointLights[ 0 ] = PointLight( Color( 1.0f, 0.0f, 0.0f ), Vector( -2.0f, 4.0f, -1.0f ), 10.0f );
+	pointLights[ 1 ] = PointLight( Color( 0.0f, 1.0f, 0.0f ), Vector( 2.0f, 4.0f, -1.0f ), 10.0f );
 
 	Matrix m = Matrix::RotateX( PI / 2.0f );
 	m = m * Matrix::TranslateMatrix( 0.0f, -3.0f, 0.0f );
@@ -407,8 +498,8 @@ int main()
 	CUDA_CHECK_RETURN( cudaMemcpyToSymbol( g_objSpheresNumber, &spheresNumber, sizeof( uint32_t ), 0 ) );
 
 	image_t image;
-	image.width = 1024;
-	image.height = 1024;
+	image.width = 2048;
+	image.height = 2048;
 	uint32_t image_size = image.width * image.height;
 
 	image.image = new Color[ image_size ];
@@ -430,9 +521,9 @@ int main()
 //	CUDA_CHECK_RETURN( cudaMemcpy( objPlane_device, &plane, sizeof( ObjectPlane ), cudaMemcpyHostToDevice ) );
 	//CUDA_CHECK_RETURN( cudaMemset( image_device, -1, image_size * sizeof( Color ) ) );
 
-	uint32_t gridSize = image_size / 512;
+	uint32_t gridSize = image_size / 256;
 	printf( "%u\n", gridSize );
-	calculate_light<<< gridSize, 512 >>>( image_device, image.width, image.height, cameraPos, viewport, planesNumber + spheresNumber );
+	calculate_light<<< gridSize, 256 >>>( image_device, image.width, image.height, cameraPos, viewport, planesNumber + spheresNumber );
 
 
 	CUDA_CHECK_RETURN( cudaThreadSynchronize() );
