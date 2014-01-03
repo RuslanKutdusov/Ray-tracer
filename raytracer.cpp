@@ -113,12 +113,12 @@ RayTracer::~RayTracer()
 //    	delete ptr;
 }
 
-Color RayTracer::ray_tracing( const Ray & ray, const int &depth, int & rays_count, float * distance )
+Color RayTracer::ray_tracing( const Ray& ray, const int& depth, int& rays_count, float* distance )
 {
-    if ( depth == MAX_DEPTH )
-        return Color( 0, 0, 0 );
+	Color ret;
 
-    Color ret( 0, 0, 0 );
+    if ( depth == MAX_DEPTH )
+        return ret;
 
     Intersection intr;
     Ray reflectRay;
@@ -130,9 +130,11 @@ Color RayTracer::ray_tracing( const Ray & ray, const int &depth, int & rays_coun
     for( size_t i = 0; i < objects.size(); i++ )
     {
         Intersection in;
-        if ( objects[i]->CheckIntersection( ray, in ) ){
+        if ( objects[i]->CheckIntersection( ray, in ) )
+        {
             float dist = in.point.distance( ray.start_point );
-            if ( dist < distance2obj ){
+            if ( dist < distance2obj )
+            {
                 distance2obj = dist;
                 intr = in;
                 i_object = i;
@@ -185,19 +187,19 @@ Color RayTracer::ray_tracing( const Ray & ray, const int &depth, int & rays_coun
         	continue;
 
         float angle_cos = to_light.vector.dot( intr.normal );
-        if( angle_cos > 0 )
+        if( angle_cos > 0.0f )
             if( !objects[ i_object ]->m_material.m_diffuse.is_black() )
                 diffuse = diffuse + lights[ i ].m_color * angle_cos * attenuation;
 
         angle_cos = to_light.vector.dot( reflectRay.vector );
-        if( angle_cos > 0 )
+        if( angle_cos > 0.0f )
             if( !objects[ i_object ]->m_material.m_specular.is_black() )
                 specular = specular + lights[ i ].m_color * pow( angle_cos, objects[ i_object ]->m_material.m_phong ) * attenuation;
     }
 
-    float d = 0;
+    float d = 0.0f;
 
-    float T = 1.0 - reflectAmount;
+    float T = 1.0f - reflectAmount;
 
     Color reflect_ray_color = ray_tracing( reflectRay, depth_, rays_count, &d );
     reflect_ray_color = reflect_ray_color * exp( -objects[i_object]->m_material.m_beta ) * reflectAmount;

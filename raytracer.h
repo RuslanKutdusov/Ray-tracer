@@ -1,9 +1,11 @@
 #pragma once
+
 #include <vector>
 #include <memory>
 #include <thread>
 #include <mutex>
 #include <list>
+
 #include "Object.hpp"
 #include "Color.hpp"
 

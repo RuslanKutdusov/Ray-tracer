@@ -3,8 +3,6 @@
 
 #include <math.h>
 
-#define SSE 1
-
 #if SSE
 #include <x86intrin.h>
 #endif
@@ -20,29 +18,29 @@ public:
     float w;
     Vector();
 #if SSE
-    Vector( const __m128 & v );
+    Vector( const __m128& v );
 #endif
-    Vector( const float & x_, const float & y_, const float & z_ );
+    Vector( const float& x_, const float& y_, const float& z_ );
     float dot( const Vector& v ) const;
     Vector operator+( const Vector& v ) const;
     Vector operator-( const Vector& v ) const;
     Vector operator*( const Vector& v ) const;
-    Vector scalar( const float & s ) const;
+    Vector scalar( const float& s ) const;
     float length() const;
-    float distance( const Vector & v )const;
+    float distance( const Vector& v )const;
     Vector reflect( const Vector& normal ) const;
     void normalize();
-    Vector move( const Vector & v ) const;
-    Vector rotate_x( const float & a ) const{
+    Vector move( const Vector& v ) const;
+    Vector rotate_x( const float& a ) const{
             return Vector( x, y * cos( a ) + z * sin( a ),
                              -y * sin( a ) + z * cos( a ) );
     }
-    Vector rotate_y( const float & a ) const{
+    Vector rotate_y( const float& a ) const{
             return Vector(  x * cos( a ) - z * sin( a ),
                             y,
                             x * sin( a ) + z * cos( a ) );
     }
-    Vector rotate_z( const float & a ) const{
+    Vector rotate_z( const float& a ) const{
             return Vector(  x * cos( a ) + y * sin( a ),
                             -x * sin( a ) + y * cos( a ),
                             z );

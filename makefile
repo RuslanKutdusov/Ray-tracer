@@ -1,5 +1,5 @@
 CC = clang++
-CFLAGS = -O3 -msse3 -c -std=c++11
+CFLAGS = -O3 -msse3 -c -std=c++11 -DSSE
 
 .cpp.o: 
 	$(CC) $(CFLAGS) $< -o $@

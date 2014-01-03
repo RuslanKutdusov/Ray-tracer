@@ -1,11 +1,13 @@
 #include "Vector.hpp"
 
+#ifdef SSE
 #define SSE_DOT 	 1
 #define SSE_ADD_SUB  1
 #define SSE_MUL		 1
 #define SSE_SCALAR	 1
 #define SSE_LENGTH	 1
 #define SSE_DISTANCE 1
+#endif
 
 Vector::Vector()
 	: x( 0.0f ), y( 0.0f ), z( 0.0f ), w( 0.0f )
@@ -13,14 +15,14 @@ Vector::Vector()
 }
 
 #if SSE
-Vector::Vector( const __m128 & v )
+Vector::Vector( const __m128& v )
 	: x( 0.0f ), y( 0.0f ), z( 0.0f ), w( 0.0f )
 {
 	*( __m128* )this = v;
 }
 #endif
 
-Vector::Vector( const float & x_, const float & y_, const float & z_ )
+Vector::Vector( const float& x_, const float& y_, const float& z_ )
 	: x( x_ ), y( y_ ), z( z_ ), w( 0.0f )
 {
 
@@ -95,7 +97,7 @@ Vector Vector::operator*( const Vector& v ) const
 #endif
 }
 
-Vector Vector::scalar( const float & s ) const
+Vector Vector::scalar( const float& s ) const
 {
 #if SSE_SCALAR
 	return Vector( _mm_mul_ps( *( __m128* )this, _mm_set1_ps( s ) ) );
@@ -140,11 +142,13 @@ float Vector::distance( const Vector& v )const
 #endif
 }
 
-Vector Vector::reflect( const Vector& normal ) const{
-	return *this - normal.scalar( 2 * dot( normal ) );
+Vector Vector::reflect( const Vector& normal ) const
+{
+	return *this - normal.scalar( 2.0f * dot( normal ) );
 }
 
-void Vector::normalize(){
+void Vector::normalize()
+{
 #if SSE_LENGTH
 	__m128* a = ( __m128* )this;
 	__m128 r1 = _mm_mul_ps( *a, *a );
@@ -161,6 +165,7 @@ void Vector::normalize(){
 #endif
 }
 
-Vector Vector::move( const Vector & v ) const{
+Vector Vector::move( const Vector& v ) const
+{
 	return Vector( x + v.x, y + v.y, z + v.z );
 }

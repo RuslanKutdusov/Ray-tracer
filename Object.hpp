@@ -1,9 +1,11 @@
 #ifndef OBJECT_HPP
 #define OBJECT_HPP
+
 #include "Ray.hpp"
 #include "Vector.hpp"
 #include "Material.hpp"
-#define EPSILON 0.001
+
+#define EPSILON 0.0001f
 #define PI 3.1415926
 
 struct Intersection
