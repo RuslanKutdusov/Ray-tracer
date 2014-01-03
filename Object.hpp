@@ -245,10 +245,10 @@ public:
     bool intersect( const Ray &ray, const float & t, Intersection & intersection )
     {
         intersection.point = ray.point( t );
-        if ( fabs( ( intersection.point - m_center ).length() - m_radius ) > EPSILON )
-        	return false;
         intersection.normal = intersection.point - m_center;
-        intersection.normal.normalize();
+        if ( fabs( intersection.normal.length() - m_radius ) > EPSILON )
+        	return false;
+        intersection.normal.normalize( m_radius );
         intersection.pixel = Color( 1.0f, 1.0f, 1.0f );
         return true;
     }

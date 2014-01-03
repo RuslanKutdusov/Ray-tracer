@@ -30,6 +30,7 @@ public:
     float distance( const Vector& v )const;
     Vector reflect( const Vector& normal ) const;
     void normalize();
+    void normalize( const float& length );
     Vector move( const Vector& v ) const;
     Vector rotate_x( const float& a ) const{
             return Vector( x, y * cos( a ) + z * sin( a ),

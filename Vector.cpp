@@ -165,6 +165,18 @@ void Vector::normalize()
 #endif
 }
 
+void Vector::normalize( const float& length )
+{
+#if SSE_LENGTH
+	__m128* a = ( __m128* )this;
+	*a = _mm_div_ps( *a, _mm_set1_ps( length ) );
+#else
+	x = x / length;
+	y = y / length;
+	z = z / length;
+#endif
+}
+
 Vector Vector::move( const Vector& v ) const
 {
 	return Vector( x + v.x, y + v.y, z + v.z );
